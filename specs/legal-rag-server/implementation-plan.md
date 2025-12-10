@@ -767,6 +767,50 @@ This section tracks issues discovered during code review and their fixes. All ph
   - **Testing**: Server now starts successfully without crashes, health check passes by verifying port availability, deployment completes without errors
   - **Key Lesson**: MCP servers don't need custom HTTP health endpoints. Testing port availability is sufficient for Docker health checks.
 
+- [x] **Issue 19: Docker Deployment Failure - Incorrect FastMCP.run() API Usage** ✅
+  - **Location**: `legal_rag_server.py:213`, `pyproject.toml:7-17`, `Dockerfile:18-20`
+  - **Problem**: Server was calling `mcp.run(transport="http", host="0.0.0.0", port=3000)` which caused `TypeError: FastMCP.run() got an unexpected keyword argument 'host'`. Container continuously crashed on startup before health check could run.
+  - **Impact**: Complete deployment failure on Coolify:
+    - Container kept restarting with TypeError
+    - Health checks failed with connection refused errors
+    - Application never became available
+    - Automatic rollback occurred after failed deployment attempts
+  - **Root Cause**: Confusion between two different libraries:
+    - **Third-party library**: `fastmcp` (from jlowin/fastmcp) - supports `host` and `port` parameters
+    - **Official MCP SDK**: `mcp.server.fastmcp` (from modelcontextprotocol) - different API, doesn't accept `host`/`port` in `run()` method
+    - Project uses the official MCP SDK (`mcp[cli]>=1.12.2`) but code was written for the third-party library API
+  - **Error Logs**:
+    ```
+    Traceback (most recent call last):
+      File "/app/legal_rag_server.py", line 213, in <module>
+        mcp.run(transport="http", host="0.0.0.0", port=3000)
+        ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    TypeError: FastMCP.run() got an unexpected keyword argument 'host'
+    ```
+  - **Resolution**:
+    - ✅ Updated `legal_rag_server.py:211-223` to use `streamable_http_app()` method instead of `run()`
+    - ✅ The official MCP SDK provides `mcp.streamable_http_app()` which returns an ASGI application
+    - ✅ Run ASGI app with uvicorn directly: `uvicorn.run(app, host=host, port=port)`
+    - ✅ Port and host now read from environment variables with defaults (`PORT=3000`, `HOST=0.0.0.0`)
+    - ✅ Added `uvicorn>=0.34.0` to dependencies in `pyproject.toml:16`
+    - ✅ Added environment variables to `Dockerfile:18-20` (`ENV PORT=3000` and `ENV HOST=0.0.0.0`)
+    - ✅ Changed from `mcp.run(transport="streamable-http")` to explicit uvicorn configuration
+  - **Code Changes**:
+    ```python
+    # Before (incorrect API):
+    mcp.run(transport="http", host="0.0.0.0", port=3000)
+
+    # After (correct API):
+    import uvicorn
+    port = int(os.getenv("PORT", "3000"))
+    host = os.getenv("HOST", "0.0.0.0")
+    app = mcp.streamable_http_app()
+    uvicorn.run(app, host=host, port=port)
+    ```
+  - **Date Fixed**: 2025-12-10
+  - **Testing**: Container now starts successfully, server listens on 0.0.0.0:3000, health checks pass, deployment completes without errors
+  - **Key Lesson**: Always verify which library/package you're using and consult the correct documentation. The official MCP SDK and third-party fastmcp library have similar names but different APIs.
+
 ### Important Issues (Fix Before Production)
 
 - [x] **Issue 5: No proper logging framework** ✅
@@ -924,14 +968,14 @@ This section tracks issues discovered during code review and their fixes. All ph
 
 ### Overall Progress
 
-**Critical Issues**: 5/5 fixed ✅
+**Critical Issues**: 6/6 fixed ✅
 **Important Issues**: 4/4 fixed ✅
 **Testing & Documentation**: 2/2 completed ✅
 **Code Quality**: 3/3 addressed ✅ (1 deferred, 1 improved, 1 deferred)
 **Security**: 2/2 addressed ✅
 **Performance**: 2/2 optimized ✅ (1 documented, 1 improved)
 
-**Total**: 18/18 issues resolved ✅
+**Total**: 19/19 issues resolved ✅
 
 ### Summary of Fixes
 

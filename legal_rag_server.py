@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import logging
+import os
 from mcp.server.fastmcp import FastMCP
 from legal_rag_utils import (
     LegalRAGConfig,
@@ -208,9 +209,18 @@ if __name__ == "__main__":
     # HTTP mode: python legal_rag_server.py --http
     # Stdio mode: python legal_rag_server.py (default, for local use)
     if "--http" in sys.argv:
+        import uvicorn
+
+        # Get port and host from environment variables with defaults
+        port = int(os.getenv("PORT", "3000"))
+        host = os.getenv("HOST", "0.0.0.0")
+
         logger.info("Starting Legal RAG Server in HTTP mode")
-        logger.info("Server will be accessible at http://0.0.0.0:3000")
-        mcp.run(transport="http", host="0.0.0.0", port=3000)
+        logger.info(f"Server will be accessible at http://{host}:{port}")
+
+        # Get the ASGI app and run with uvicorn
+        app = mcp.streamable_http_app()
+        uvicorn.run(app, host=host, port=port)
     else:
         logger.info("Starting Legal RAG Server in stdio mode (local use)")
         mcp.run()

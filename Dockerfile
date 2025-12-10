@@ -15,6 +15,10 @@ RUN uv sync --frozen --no-dev
 # Copy application files
 COPY legal_rag_server.py legal_rag_utils.py ./
 
+# Set default port and host for HTTP transport
+ENV PORT=3000
+ENV HOST=0.0.0.0
+
 # Expose port for HTTP transport
 EXPOSE 3000
 
