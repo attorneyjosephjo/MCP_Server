@@ -202,6 +202,34 @@ def list_all_legal_documents(
         )
 
 
+# Add health check endpoint for external monitoring
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request):
+    """Health check endpoint for load balancers and monitoring."""
+    from starlette.responses import JSONResponse
+    return JSONResponse({
+        "status": "healthy",
+        "service": "LegalDocumentRAGServer",
+        "version": "1.0.0"
+    })
+
+
+# Add root endpoint to show server info
+@mcp.custom_route("/", methods=["GET"])
+async def root(request):
+    """Root endpoint showing server information."""
+    from starlette.responses import JSONResponse
+    return JSONResponse({
+        "service": "Legal RAG MCP Server",
+        "status": "running",
+        "description": "FastMCP server for legal document search and retrieval",
+        "endpoints": {
+            "health": "/health",
+            "mcp": "Use an MCP client to connect to this server"
+        }
+    })
+
+
 if __name__ == "__main__":
     import sys
 
