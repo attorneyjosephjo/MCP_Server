@@ -238,17 +238,61 @@ if __name__ == "__main__":
     # Stdio mode: python legal_rag_server.py (default, for local use)
     if "--http" in sys.argv:
         import uvicorn
+        from api_key_auth import APIKeyConfig, APIKeyMiddleware
 
         # Get port and host from environment variables with defaults
         port = int(os.getenv("PORT", "3000"))
         host = os.getenv("HOST", "0.0.0.0")
 
+        # Check if database-backed authentication is enabled
+        db_auth_enabled = os.getenv("MCP_API_AUTH_DB_ENABLED", "false").lower() == "true"
+
+        # Load API key authentication configuration
+        auth_config = APIKeyConfig.from_env()
+
+        # Initialize database client if DB mode is enabled
+        db_client = None
+        if db_auth_enabled:
+            try:
+                from api_key_auth_db import create_api_key_db
+
+                # Reuse existing Supabase connection
+                supabase_client = get_cached_supabase_client()
+                db_client = create_api_key_db(supabase_client)
+
+                logger.info("Database-backed API key authentication ENABLED")
+                logger.info("Using Supabase for API key storage, validation, and rate limiting")
+            except Exception as e:
+                logger.error(f"Failed to initialize database authentication: {e}")
+                logger.warning("Falling back to environment variable authentication")
+                db_auth_enabled = False
+
+        # Log authentication status
+        if db_auth_enabled:
+            # Database mode logging handled above
+            pass
+        elif auth_config.enabled:
+            logger.info("Environment variable-based API key authentication ENABLED")
+            logger.info(f"Configured with {len(auth_config.api_keys)} valid API key(s)")
+            if auth_config.key_names:
+                logger.info(f"Named keys: {', '.join(auth_config.key_names.values())}")
+        else:
+            logger.warning("API Key authentication DISABLED")
+            logger.warning("HTTP server is PUBLICLY accessible without authentication!")
+
         logger.info("Starting Legal RAG Server in HTTP mode")
         logger.info(f"Server will be accessible at http://{host}:{port}")
 
-        # Get the ASGI app and run with uvicorn
+        # Get the ASGI app and add authentication middleware if enabled
         app = mcp.streamable_http_app()
+
+        if db_auth_enabled or auth_config.enabled:
+            # Add middleware with optional database client
+            app.add_middleware(APIKeyMiddleware, config=auth_config, db_client=db_client)
+            logger.info("APIKeyMiddleware added to request pipeline")
+
         uvicorn.run(app, host=host, port=port)
     else:
         logger.info("Starting Legal RAG Server in stdio mode (local use)")
+        logger.info("No authentication required for stdio mode")
         mcp.run()
