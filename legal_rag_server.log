@@ -5,3 +5,5 @@
 2025-12-10 12:42:54,794 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
 2025-12-10 12:46:54,851 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
 2025-12-10 12:46:59,014 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 12:50:55,900 - legal_rag - INFO - Creating new Supabase client
+2025-12-10 12:50:56,581 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 404 Not Found"
