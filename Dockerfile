@@ -13,7 +13,7 @@ COPY uv.lock ./
 RUN uv sync --frozen --no-dev
 
 # Copy application files
-COPY legal_rag_server.py legal_rag_utils.py ./
+COPY legal_rag_server.py legal_rag_utils.py api_key_auth.py api_key_auth_db.py ./
 
 # Set default port and host for HTTP transport
 ENV PORT=3000
