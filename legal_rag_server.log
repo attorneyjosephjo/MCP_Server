@@ -3,3 +3,5 @@
 2025-12-10 12:42:54,789 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
 2025-12-10 12:42:54,792 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
 2025-12-10 12:42:54,794 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-10 12:46:54,851 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2025-12-10 12:46:59,014 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
