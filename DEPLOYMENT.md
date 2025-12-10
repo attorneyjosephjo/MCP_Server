@@ -19,7 +19,7 @@ Nixpacks will auto-detect your Python project and handle setup automatically.
 **Coolify Configuration:**
 - **Build Pack**: Nixpacks
 - **Port**: 3000
-- **Start Command**: `uv run legal_rag_server.py --sse`
+- **Start Command**: `uv run legal_rag_server.py --http`
 
 ### Option 2: Dockerfile (Recommended for Production)
 
@@ -49,7 +49,7 @@ Use the included Dockerfile for more control and optimized builds.
 **For Nixpacks:**
 - Build Pack: **Nixpacks**
 - Port: **3000**
-- Start Command: `uv run legal_rag_server.py --sse`
+- Start Command: `uv run legal_rag_server.py --http`
 
 ### 3. Environment Variables
 
@@ -105,7 +105,7 @@ After deployment, update your Claude Desktop configuration to connect to the rem
       "command": "npx",
       "args": [
         "-y",
-        "@modelcontextprotocol/client-sse",
+        "@modelcontextprotocol/client",
         "https://legal-rag.your-coolify-domain.com"
       ]
     }
@@ -121,7 +121,7 @@ Replace `https://legal-rag.your-coolify-domain.com` with your actual Coolify app
 
 ### Local Mode (stdio transport)
 
-For local development, run without the `--sse` flag:
+For local development, run without the `--http` flag:
 
 ```bash
 uv run legal_rag_server.py
@@ -141,9 +141,9 @@ Configure Claude Desktop:
 }
 ```
 
-### Remote Mode (SSE transport)
+### Remote Mode (HTTP transport)
 
-For remote access via Coolify, the server automatically runs with `--sse` flag.
+For remote access via Coolify, the server automatically runs with `--http` flag using the recommended HTTP transport (SSE is now legacy).
 
 Configure Claude Desktop as shown in section 5 above.
 
