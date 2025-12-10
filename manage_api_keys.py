@@ -98,6 +98,44 @@ def generate_slug(name: str) -> str:
     return slug
 
 
+def get_tier_limits(tier: str) -> dict:
+    """Fetch rate limits for a given tier from database.
+
+    Args:
+        tier: Tier name (free, basic, professional, enterprise, custom)
+
+    Returns:
+        dict: Rate limits with keys: rate_limit_per_minute, rate_limit_per_hour, rate_limit_per_day
+    """
+    supabase = get_supabase_client()
+    
+    try:
+        result = supabase.table("api_key_tiers").select("*").eq("tier_name", tier).execute()
+        
+        if result.data and len(result.data) > 0:
+            tier_config = result.data[0]
+            return {
+                "rate_limit_per_minute": tier_config["rate_limit_per_minute"],
+                "rate_limit_per_hour": tier_config["rate_limit_per_hour"],
+                "rate_limit_per_day": tier_config["rate_limit_per_day"]
+            }
+        else:
+            # Fallback to basic tier defaults if tier not found
+            console.print(f"[yellow]Warning: Tier '{tier}' not found in database. Using basic tier defaults.[/yellow]")
+            return {
+                "rate_limit_per_minute": 60,
+                "rate_limit_per_hour": 1000,
+                "rate_limit_per_day": 10000
+            }
+    except Exception as e:
+        console.print(f"[yellow]Warning: Could not fetch tier limits: {e}. Using defaults.[/yellow]")
+        return {
+            "rate_limit_per_minute": 60,
+            "rate_limit_per_hour": 1000,
+            "rate_limit_per_day": 10000
+        }
+
+
 def get_or_create_individual_org(email: str, tier: str = "free") -> str:
     """Get or create a personal organization for an individual user.
 
@@ -232,6 +270,12 @@ def create_api_key(
     if expires_days:
         expires_at = (datetime.now() + timedelta(days=expires_days)).isoformat()
 
+    # Get tier-based rate limits if custom limits not specified
+    tier_limits = get_tier_limits(tier)
+    final_rate_limit_minute = rate_limit_minute if rate_limit_minute is not None else tier_limits["rate_limit_per_minute"]
+    final_rate_limit_hour = rate_limit_hour if rate_limit_hour is not None else tier_limits["rate_limit_per_hour"]
+    final_rate_limit_day = rate_limit_day if rate_limit_day is not None else tier_limits["rate_limit_per_day"]
+
     # Insert into database
     data = {
         "key_hash": key_hash,
@@ -243,9 +287,9 @@ def create_api_key(
         "tier": tier,
         "description": description,
         "expires_at": expires_at,
-        "rate_limit_per_minute": rate_limit_minute,
-        "rate_limit_per_hour": rate_limit_hour,
-        "rate_limit_per_day": rate_limit_day,
+        "rate_limit_per_minute": final_rate_limit_minute,
+        "rate_limit_per_hour": final_rate_limit_hour,
+        "rate_limit_per_day": final_rate_limit_day,
         "created_by": created_by
     }
 
@@ -259,9 +303,10 @@ def create_api_key(
             f"[yellow]⚠️  IMPORTANT: Save this key now - it cannot be retrieved later![/yellow]\n\n"
             f"[bold]API Key:[/bold] [cyan]{api_key}[/cyan]\n"
             f"[bold]Client:[/bold] {name}\n"
+            f"[bold]Tier:[/bold] {tier.upper()}\n"
             f"[bold]ID:[/bold] {result.data[0]['id']}\n"
             f"[bold]Expires:[/bold] {expires_at if expires_at else 'Never'}\n"
-            f"[bold]Rate Limits:[/bold] {rate_limit_minute or 60}/min, {rate_limit_hour or 1000}/hour, {rate_limit_day or 10000}/day",
+            f"[bold]Rate Limits:[/bold] {final_rate_limit_minute}/min, {final_rate_limit_hour}/hour, {final_rate_limit_day}/day",
             title="✅ Success",
             border_style="green"
         ))
