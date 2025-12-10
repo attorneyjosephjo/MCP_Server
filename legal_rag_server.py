@@ -201,12 +201,6 @@ def list_all_legal_documents(
         )
 
 
-@mcp.get("/health")
-async def health_check():
-    """Health check endpoint for deployment monitoring"""
-    return {"status": "healthy", "service": "legal-rag-server"}
-
-
 if __name__ == "__main__":
     import sys
 

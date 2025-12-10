@@ -18,9 +18,9 @@ COPY legal_rag_server.py legal_rag_utils.py ./
 # Expose port for HTTP transport
 EXPOSE 3000
 
-# Health check - use wget or curl for better reliability
+# Health check - check if the MCP server port is listening
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:3000/health').read()" || exit 1
+  CMD python -c "import socket; s=socket.socket(); s.settimeout(5); s.connect(('localhost', 3000)); s.close()" || exit 1
 
 # Run the server in HTTP mode
 CMD ["uv", "run", "legal_rag_server.py", "--http"]
