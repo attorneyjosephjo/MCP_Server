@@ -1,3 +1,7 @@
+---
+description: Create a comprehensive checkpoint commit
+---
+
 Please create a comprehensive checkpoint commit with the following steps:
 
 1. **Initialize Git if needed**: Run `git init` if git has not been instantiated for the project yet.
