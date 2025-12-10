@@ -202,4 +202,15 @@ def list_all_legal_documents(
 
 
 if __name__ == "__main__":
-    mcp.run()
+    import sys
+
+    # Check if we should run in SSE mode (for remote access via Coolify)
+    # SSE mode: python legal_rag_server.py --sse
+    # Stdio mode: python legal_rag_server.py (default, for local use)
+    if "--sse" in sys.argv:
+        logger.info("Starting Legal RAG Server in SSE mode (HTTP transport)")
+        logger.info("Server will be accessible at http://0.0.0.0:3000")
+        mcp.run(transport="sse", host="0.0.0.0", port=3000)
+    else:
+        logger.info("Starting Legal RAG Server in stdio mode (local use)")
+        mcp.run()
