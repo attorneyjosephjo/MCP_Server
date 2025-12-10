@@ -160,15 +160,23 @@ async def generate_embedding_async(text: str, config: LegalRAGConfig) -> List[fl
     """
     Generate embedding using OpenAI text-embedding-3-small (async version)
     Returns 1536-dimensional vector
+
+    IMPORTANT: Uses context manager to properly close AsyncOpenAI client connections.
+    Without this, the client waits for connection timeout (240 seconds).
     """
-    client = AsyncOpenAI(api_key=config.openai_api_key)
+    logger.debug("Creating AsyncOpenAI client...")
+    async with AsyncOpenAI(api_key=config.openai_api_key) as client:
+        logger.debug(f"Calling embeddings API with model: {config.embedding_model}")
+        response = await client.embeddings.create(
+            input=text,
+            model=config.embedding_model
+        )
+        logger.debug("Embeddings API call completed, extracting embedding...")
+        embedding = response.data[0].embedding
+        logger.debug(f"Embedding extracted, length: {len(embedding)}")
 
-    response = await client.embeddings.create(
-        input=text,
-        model=config.embedding_model
-    )
-
-    return response.data[0].embedding
+    logger.debug("AsyncOpenAI client closed, returning embedding")
+    return embedding
 
 
 @retry_with_backoff(max_retries=3)
@@ -224,14 +232,22 @@ async def rerank_documents_async(
 
     # Run sync Cohere call in thread pool to avoid blocking
     def _rerank():
+        logger.debug("Creating Cohere ClientV2...")
         co = cohere.ClientV2(api_key=config.cohere_api_key)
         doc_texts = [doc['content'] for doc in documents]
-        return co.rerank(
+        logger.debug(f"Calling Cohere rerank with {len(doc_texts)} documents, top_n={min(top_n, len(documents))}")
+        result = co.rerank(
             model=config.rerank_model,
             query=query,
             documents=doc_texts,
             top_n=min(top_n, len(documents))
         )
+        logger.debug("Cohere rerank API call completed")
+        # Explicitly close the client to release resources
+        if hasattr(co, 'close'):
+            co.close()
+            logger.debug("Cohere client closed")
+        return result
 
     rerank_response = await asyncio.to_thread(_rerank)
 
@@ -265,12 +281,17 @@ async def search_documents_with_rerank(
     """
     try:
         # Generate query embedding (async)
+        logger.info(f"Starting embedding generation for query: {query[:50]}...")
         query_embedding = await generate_embedding_async(query, config)
+        logger.info(f"Embedding generated successfully, length: {len(query_embedding)}")
 
         # Perform vector search via Supabase RPC (run in thread pool)
+        logger.info("Starting Supabase vector search...")
         def _vector_search():
+            logger.info("Inside _vector_search, getting Supabase client...")
             supabase = get_cached_supabase_client(config)
             search_count = min(top_k * 2, 100)
+            logger.info(f"Calling RPC function: {config.match_function} with count: {search_count}")
             return supabase.rpc(
                 config.match_function,
                 {
@@ -280,7 +301,9 @@ async def search_documents_with_rerank(
                 }
             ).execute()
 
+        logger.info("About to call asyncio.to_thread(_vector_search)...")
         results = await asyncio.to_thread(_vector_search)
+        logger.info(f"Supabase search completed, got {len(results.data) if results.data else 0} results")
 
         if not results.data:
             return {
@@ -308,6 +331,7 @@ async def search_documents_with_rerank(
                 }
 
         # Rerank with Cohere (async)
+        logger.info(f"Starting Cohere reranking with {len(filtered_results)} documents...")
         try:
             reranked_results = await rerank_documents_async(
                 query=query,
@@ -315,6 +339,7 @@ async def search_documents_with_rerank(
                 top_n=top_k,
                 config=config
             )
+            logger.info(f"Reranking completed, returning {len(reranked_results)} results")
         except Exception as e:
             # Fall back to vector similarity scores if reranking fails
             logger.warning(f"Reranking failed: {e}. Falling back to vector similarity scores.")
@@ -322,6 +347,7 @@ async def search_documents_with_rerank(
             for doc in reranked_results:
                 doc['relevance_score'] = doc.get('similarity', 0.0)
 
+        logger.info("Returning final results...")
         return {
             "query": query,
             "document_type": document_type,

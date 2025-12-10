@@ -967,6 +967,438 @@ This section tracks issues discovered during code review and their fixes. All ph
     - Single source of truth for secrets makes rotation and management easier
     - Claude Desktop config should only contain server connection details, not application secrets
 
+- [x] **Issue 23: Supabase RPC Function Signature Mismatch - 404 Error on Vector Search** ✅
+  - **Location**: Supabase database function `match_n8n_law_startuplaw`, `legal_rag_utils.py:274-281`
+  - **Problem**: MCP server failed with HTTP 404 when calling Supabase RPC function. The existing function created for n8n had signature `(vector, integer, jsonb)` but MCP server was calling with signature `(vector, float, integer)`. PostgreSQL couldn't find a matching function overload.
+  - **Impact**: Complete failure of semantic search functionality:
+    - All search requests hung for 4+ minutes before timing out
+    - OpenAI embeddings succeeded but Supabase vector search returned 404
+    - No search results returned to user
+    - Poor user experience with long wait times and no feedback
+    - Claude couldn't use any of the legal document search tools
+  - **Root Cause**:
+    - Database function was originally created for n8n workflow with different parameter signature
+    - n8n's Supabase Vector Store node uses: `(query_embedding: vector, match_count: integer, filter: jsonb)`
+    - MCP server expects: `(query_embedding: vector, match_threshold: float, match_count: integer)`
+    - PostgreSQL function overloading requires exact parameter type match
+    - No function existed with the signature MCP was calling
+  - **Error Logs**:
+    ```
+    2025-12-10 12:46:54,851 - Processing request of type CallToolRequest
+    2025-12-10 12:46:59,014 - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+    2025-12-10 12:50:55,900 - Creating new Supabase client
+    2025-12-10 12:50:56,581 - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 404 Not Found"
+    ```
+    (Note: 4 minute gap between embeddings success and Supabase call attempt)
+  - **Discovery Process**:
+    - Initial symptom: Requests taking 4+ minutes with no response
+    - Log analysis showed successful OpenAI call but no subsequent logs
+    - Added real-time log monitoring with `tail -f` to catch the 404 error
+    - Checked Supabase connectivity (successful - server responding with 401 auth required)
+    - Found 404 on RPC endpoint 4 minutes after request started
+    - Compared n8n workflow config with MCP server expectations
+    - Identified parameter type mismatch between existing function and MCP requirements
+  - **Resolution**:
+    - ✅ Created additional overloaded function with correct signature for MCP server:
+      ```sql
+      CREATE OR REPLACE FUNCTION match_n8n_law_startuplaw(
+          query_embedding vector(1536),
+          match_threshold FLOAT,
+          match_count INT
+      )
+      RETURNS TABLE (
+          id uuid,
+          content text,
+          metadata jsonb,
+          embedding vector(1536),
+          similarity float
+      )
+      LANGUAGE plpgsql
+      AS $$
+      BEGIN
+          RETURN QUERY
+          SELECT
+              n8n_law_startuplaw.id,
+              n8n_law_startuplaw.content,
+              n8n_law_startuplaw.metadata,
+              n8n_law_startuplaw.embedding,
+              1 - (n8n_law_startuplaw.embedding <=> query_embedding) as similarity
+          FROM n8n_law_startuplaw
+          WHERE 1 - (n8n_law_startuplaw.embedding <=> query_embedding) > match_threshold
+          ORDER BY n8n_law_startuplaw.embedding <=> query_embedding
+          LIMIT match_count;
+      END;
+      $$;
+      ```
+    - ✅ PostgreSQL function overloading allows both versions to coexist
+    - ✅ n8n continues using `(vector, integer, jsonb)` signature
+    - ✅ MCP server uses `(vector, float, integer)` signature
+    - ✅ Both workflows can operate independently without conflicts
+  - **Additional Issue - Return Type Mismatch**: After creating the function, got HTTP 400 error instead of 404:
+    ```
+    2025-12-10 13:02:56,652 - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 400 Bad Request"
+    ```
+    - Error message: `"structure of query does not match function result type"` / `"Returned type bigint does not match expected type uuid in column 1"`
+    - Root cause: Function was defined with `RETURNS TABLE (id uuid, ...)` but actual table has `id bigint`
+    - Table inspection showed: `{"id": 1264, "content": "...", "metadata": {...}}` - id is integer not uuid
+    - PostgreSQL won't allow changing return type with `CREATE OR REPLACE FUNCTION`
+    - Error when trying to fix: `ERROR: 42P13: cannot change return type of existing function`
+  - **Final Resolution**:
+    - ✅ Used `DROP FUNCTION IF EXISTS match_n8n_law_startuplaw(vector, double precision, integer)` first
+    - ✅ Then created function with correct return type: `RETURNS TABLE (id bigint, ...)`
+    - ✅ Note: PostgreSQL treats FLOAT as double precision internally in function signatures
+    - ✅ Must verify actual table schema before defining function return types
+  - **Date Fixed**: 2025-12-10
+  - **Testing**: After creating overloaded function with correct types, MCP server should successfully call Supabase RPC and return results in ~7-11 seconds total (OpenAI 4-5s + Supabase 1-2s + Cohere 2-4s)
+  - **Key Lessons**:
+    - PostgreSQL function signatures must match exactly (name + parameter types + order)
+    - Return types must also match exactly - verify actual table schema before defining functions
+    - When integrating with existing databases, always verify function signatures match code expectations
+    - Use `DROP FUNCTION` before recreating functions when changing return types (CREATE OR REPLACE won't work)
+    - PostgreSQL treats FLOAT parameters as double precision in function signatures
+    - Function overloading in PostgreSQL allows multiple versions with different signatures to coexist
+    - Add detailed logging between pipeline steps to quickly identify where failures occur
+    - Real-time log monitoring (`tail -f`) is essential for debugging slow/hanging requests
+    - Document expected response times for each pipeline stage to quickly identify bottlenecks
+    - Test function calls with curl to see actual error messages from Supabase
+    - 404 = function signature not found; 400 = function found but parameters/return type mismatch
+
+- [x] **Issue 24: Mysterious 4-Minute Delay in Search Pipeline - RESOLVED** ✅
+  - **Location**: `legal_rag_utils.py:158-179` (generate_embedding_async function)
+  - **Problem**: After fixing function signature issues (Issue 23), Supabase RPC now returns 200 OK successfully, but there's a consistent ~4-minute delay (240 seconds) between OpenAI embeddings completing and Supabase being called. User reports the same function works immediately in n8n workflow, confirming this is a Python MCP server issue, not a Supabase problem.
+  - **Impact**: Severe performance degradation:
+    - Total search time: 4+ minutes (should be 7-11 seconds)
+    - MCP client timeout: Requests cancelled after 240 seconds with "Request timed out" error
+    - User receives no results due to timeout
+    - Makes the MCP server effectively unusable for production
+  - **Symptoms**:
+    - Consistent delay pattern across multiple requests: 3min 56-58 seconds
+    - Timeline example from logs:
+      ```
+      13:08:25 - Request received
+      13:08:28 - OpenAI embeddings completed (3 seconds) ✅
+      [4-MINUTE GAP]
+      13:12:25 - Supabase client created
+      13:12:26 - Supabase RPC returned 200 OK (<1 second) ✅
+      [Request cancelled due to timeout]
+      ```
+    - The delay occurs BEFORE Supabase is called, not during the Supabase operation
+    - Supabase itself responds instantly (<1 second) when finally called
+    - Same Supabase function works immediately in n8n (user confirmed)
+  - **Investigation Steps Taken**:
+    1. ✅ Verified Supabase function works (200 OK response)
+    2. ✅ Tested Supabase connectivity (server reachable, responds correctly)
+    3. ✅ Confirmed n8n workflow with identical function works instantly
+    4. ✅ Ruled out network issues (Supabase responds in <1 second when called)
+    5. ✅ Ruled out function signature issues (resolved in Issue 23)
+    6. ✅ Added detailed logging throughout pipeline to identify bottleneck:
+       - Log before/after embedding generation
+       - Log before/after asyncio.to_thread() call
+       - Log inside _vector_search function
+       - Log before/after Cohere reranking
+       - Log at final return statement
+  - **Hypotheses Being Investigated**:
+    - **H1: Thread Pool Exhaustion**: `asyncio.to_thread()` may be waiting for available thread
+    - **H2: Event Loop Blocking**: Something blocking async execution before Supabase call
+    - **H3: Retry Mechanism**: Hidden retry with exponential backoff causing delay
+    - **H4: MCP Protocol Timeout**: Client-side timeout interfering with execution
+    - **H5: Async/Sync Boundary Issue**: Problem with sync Supabase client in async context
+  - **Current Status**:
+    - Detailed logging added to pinpoint exact location of delay
+    - Waiting for next test run to analyze log output
+    - Logs will show gap between specific operations to identify root cause
+  - **Expected Log Pattern (Normal)**:
+    ```
+    13:08:25 - Request received
+    13:08:25 - Starting embedding generation...
+    13:08:28 - Embedding generated successfully (3s)
+    13:08:28 - Starting Supabase vector search...
+    13:08:28 - About to call asyncio.to_thread...
+    13:08:28 - Inside _vector_search, getting client...
+    13:08:28 - Calling RPC function...
+    13:08:29 - Supabase search completed (1s)
+    13:08:29 - Starting Cohere reranking...
+    13:08:32 - Reranking completed (3s)
+    13:08:32 - Returning final results
+    Total: ~7 seconds ✅
+    ```
+  - **Potential Solutions** (to try once bottleneck identified):
+    - If thread pool issue: Increase thread pool size or use different async approach
+    - If event loop blocking: Move blocking operations to separate process
+    - If retry issue: Adjust retry decorator parameters or remove from certain operations
+    - If async/sync issue: Use fully async Supabase client library
+    - If MCP timeout: Increase client timeout or optimize pipeline to complete faster
+  - **Date Started**: 2025-12-10
+  - **Status**: Under investigation - bottleneck identified at `generate_embedding_async` return
+  - **Step-by-Step Investigation Guide** (for debugging similar async/performance issues):
+
+    **Phase 1: Symptom Identification & Baseline Establishment**
+    1. ✅ Document exact symptoms with timestamps from logs
+       - Identify consistent patterns (e.g., 4-minute delay recurring)
+       - Note which operations complete vs which hang
+       - Record any error messages or timeout messages
+    2. ✅ Establish baseline performance expectations
+       - Check if same operation works in different environment (n8n, direct API calls)
+       - Time each component individually (OpenAI: ~3s, Supabase: ~1s, Cohere: ~3s)
+       - Calculate expected total time (7-11 seconds for full pipeline)
+    3. ✅ Verify external services are functioning
+       - Test Supabase directly with curl: `curl -X POST http://host/rest/v1/rpc/function`
+       - Verify API keys are valid and services respond quickly
+       - Rule out network latency or service degradation
+
+    **Phase 2: Hypothesis Formation**
+    4. ✅ List all possible causes based on symptoms
+       - Thread pool exhaustion → delays in asyncio.to_thread()
+       - Event loop blocking → synchronous operations in async context
+       - Retry mechanisms → exponential backoff causing delays
+       - Timeout interference → client or server timeouts
+       - Async/sync boundary issues → improper async/await usage
+       - Resource contention → database connections, API rate limits
+    5. ✅ Prioritize hypotheses by likelihood
+       - Start with integration layer (where environments differ)
+       - Check for blocking operations in async functions
+       - Look for retry decorators with aggressive backoff
+       - Examine asyncio.to_thread() usage patterns
+
+    **Phase 3: Detailed Logging Implementation**
+    6. ✅ Add timestamp-based logging at critical boundaries
+       ```python
+       logger.info("Starting operation X...")
+       result = await operation_x()
+       logger.info(f"Operation X completed, result: {result}")
+       ```
+    7. ✅ Log at every async boundary
+       - Before and after each `await` statement
+       - Entry and exit of async functions
+       - Inside thread pool functions (asyncio.to_thread callbacks)
+    8. ✅ Include contextual information in logs
+       - Operation parameters (e.g., query length, top_k)
+       - Result sizes (e.g., number of documents returned)
+       - Resource states (e.g., "Creating new Supabase client")
+
+    **Phase 4: Log Analysis & Pattern Recognition**
+    9. ✅ Monitor logs in real-time during test
+       - Use `tail -f logfile.log` to see logs as they appear
+       - Run test operation and watch timestamp gaps
+       - Note exactly which log appears and which doesn't
+    10. ✅ Identify the exact line where delay occurs
+        - Example findings from this investigation:
+          ```
+          13:19:10 - "HTTP Request: POST .../embeddings 200 OK" ✅
+          [4-MINUTE GAP]
+          13:23:XX - Next operation log appears
+          ```
+        - Missing log: "Embedding generated successfully..."
+        - **Conclusion**: Delay is AFTER OpenAI HTTP completes but BEFORE next Python line executes
+    11. ✅ Calculate time deltas between operations
+        - OpenAI call: 13:19:08 → 13:19:10 (2 seconds) ✅
+        - Gap: 13:19:10 → 13:23:XX (~4 minutes) ❌
+        - Identify anomalous gaps vs expected durations
+
+    **Phase 5: Narrow Down Root Cause**
+    12. ✅ Examine code at exact bottleneck location
+        - In this case: `query_embedding = await generate_embedding_async(...)`
+        - Check function definition for retry decorators
+        - Look for blocking operations after external API call
+        - Review error handling that might silently retry
+    13. ✅ Check for decorator-based behavior
+        - Retry decorators: `@async_retry_with_backoff(max_retries=3)`
+        - Timeout decorators or context managers
+        - Rate limiting decorators
+    14. ✅ Test individual components in isolation
+        - Create minimal test script for just the slow function
+        - Run outside MCP context to rule out MCP-specific issues
+        - Compare sync vs async versions
+
+    **Phase 6: Hypothesis Testing**
+    15. ⏳ Test each hypothesis systematically
+        - **H1: Retry mechanism**: Check if removing retry decorator fixes issue
+        - **H2: Async context**: Test if running sync version works normally
+        - **H3: Resource cleanup**: Check if client/connection cleanup is blocking
+        - **H4: MCP protocol**: Test if increasing client timeout helps
+    16. ⏳ Make targeted code changes
+        - Change one thing at a time
+        - Re-run test after each change
+        - Document which change fixed the issue
+    17. ⏳ Verify fix doesn't break other functionality
+        - Test all 4 MCP tools after fix
+        - Ensure error handling still works
+        - Confirm performance is now within expected range (7-11s)
+
+    **Phase 7: Root Cause Documentation**
+    18. ⏳ Document exact cause once identified
+        - What was the root cause?
+        - Why did it cause a 4-minute delay specifically?
+        - Why didn't it affect n8n? (different async implementation)
+    19. ⏳ Document the fix
+        - What code was changed?
+        - Why does this fix resolve the issue?
+        - Are there any side effects or trade-offs?
+    20. ⏳ Update Issue 24 with complete resolution
+        - Mark checkbox as [x] completed
+        - Add "Resolution" section with fix details
+        - Include lessons learned for future similar issues
+
+    **Current Progress**: Steps 1-14 completed ✅, identified bottleneck at line 269-270 in legal_rag_utils.py
+    **Next Step**: Investigate `generate_embedding_async` function and its `@async_retry_with_backoff` decorator
+
+  - **Root Cause Identified**:
+    - AsyncOpenAI client in `generate_embedding_async` was created but never properly closed
+    - Without closing, the client waits for HTTP connection timeout (default: 240 seconds)
+    - OpenAI HTTP request completed successfully (200 OK) but Python was waiting for client cleanup
+    - The gap between HTTP 200 and next Python statement was the connection timeout period
+
+  - **Resolution Implemented**:
+    - ✅ Wrapped AsyncOpenAI client in `async with` context manager
+    - ✅ Context manager ensures automatic client closure when exiting the block
+    - ✅ Added detailed debug logging throughout the function
+    - ✅ Also fixed similar issue in Cohere client (added explicit close)
+    - ✅ Code changes in `legal_rag_utils.py:158-179` and `legal_rag_utils.py:234-250`
+
+  - **Expected Results After Fix**:
+    - Total search time should be 7-11 seconds (OpenAI 3-5s + Supabase 1-2s + Cohere 3-4s)
+    - No more 4-minute delays
+    - All requests complete within MCP client timeout
+    - User receives results immediately
+
+  - **Resolution Verified**: 2025-12-10
+    - ✅ Tested individual components: OpenAI (1.5s), Supabase (1.6s), Cohere (0.7s)
+    - ✅ Tested full MCP server pipeline: **5.73 seconds total** (well within 7-11s target)
+    - ✅ No more 4-minute delays - issue completely resolved
+    - ✅ AsyncOpenAI context manager (`async with`) properly closes connections
+    - ✅ Cohere client also explicitly closed after use
+    - ✅ All async operations now non-blocking and performant
+
+  - **Final Performance Metrics**:
+    ```
+    MCP Server Search Pipeline (Measured 2025-12-10):
+    - OpenAI Embedding Generation:  ~1.5 seconds
+    - Supabase Vector Search:       ~1.6 seconds
+    - Cohere Reranking:             ~0.7 seconds
+    - Total Pipeline Time:          ~5.7 seconds ✅
+
+    Expected: 7-11 seconds
+    Actual: 5.73 seconds
+    Status: PASSING - Better than expected!
+    ```
+
+  - **Key Lessons Learned**:
+    - **Root Cause**: AsyncOpenAI client created without context manager waited for HTTP connection timeout (240 seconds) before being garbage collected
+    - **Solution**: Using `async with AsyncOpenAI() as client:` ensures immediate connection closure when block exits
+    - When performance differs between environments (n8n works, MCP doesn't), issue is in the integration layer not the underlying service
+    - Detailed timing logs between each operation are essential for diagnosing async/threading issues
+    - Consistent delay patterns (3min 56-58s) suggest timeout rather than variable performance
+    - The gap between HTTP 200 response and next Python line suggests async/await issue or resource cleanup delay
+    - Always use context managers (`async with`) for async API clients to ensure proper resource cleanup
+    - Python's garbage collector may delay cleanup of unclosed HTTP connections, causing timeouts
+    - Testing individual components in isolation helps identify exact bottleneck location
+
+- [x] **Issue 25: Missing Environment Variables in Claude Desktop Config - "No result received" Error** ✅
+  - **Location**: `claude_desktop_config.json`, `legal_rag_server.py:14`
+  - **Problem**: Claude Desktop config was missing the `env` field with API keys. When `uv run` executed `legal_rag_server.py`, it couldn't access environment variables from the `.env` file because:
+    - `uv run` launches the server in a subprocess with its own environment
+    - The `.env` file is not automatically loaded by `uv` - `load_dotenv()` only works when the Python process starts
+    - Without API keys, `LegalRAGConfig.from_env()` failed validation
+    - Server crashed silently during initialization
+    - Claude Desktop reported "No result received from client-side tool execution"
+  - **Impact**: Complete failure of MCP server in Claude Desktop:
+    - Server appeared to start but immediately crashed
+    - No error messages visible to user in Claude Desktop UI
+    - All tool calls failed with "No result received" error
+    - Logs showed server starting then immediately stopping
+    - User unable to use any semantic search functionality
+  - **Root Cause**: Misunderstanding about how `uv run` handles environment variables:
+    - User had correctly configured `.env` file with all API keys
+    - User had correctly added `load_dotenv()` in `legal_rag_server.py:14`
+    - But `load_dotenv()` looks for `.env` relative to current working directory
+    - When Claude Desktop runs `uv run`, the working directory might not be the project directory
+    - Even with `--directory` flag, environment variables aren't automatically inherited
+  - **Test Evidence**:
+    - ✅ Test script (`test_mcp_search.py`) worked perfectly - completed search in 6.14 seconds
+    - ✅ Test script loaded `.env` correctly because it ran from within project directory
+    - ❌ MCP server through Claude Desktop failed - couldn't load `.env` from subprocess
+  - **Error Pattern**:
+    ```
+    User tries to use MCP tool in Claude Desktop
+    → Claude Desktop launches: uv --directory "..." run --python 3.13 legal_rag_server.py
+    → Server starts, loads config
+    → load_dotenv() looks for .env but can't find it or working directory is wrong
+    → os.getenv() returns None for all API keys
+    → LegalRAGConfig.from_env() raises ValueError: "Missing required environment variables"
+    → Server crashes during initialization
+    → Claude Desktop reports: "No result received from client-side tool execution"
+    ```
+  - **Resolution**:
+    - ✅ Added `env` field to Claude Desktop config with all required API keys:
+      - `SUPABASE_URL`
+      - `SUPABASE_SERVICE_ROLE_KEY`
+      - `OPENAI_API_KEY`
+      - `COHERE_API_KEY`
+    - ✅ Environment variables now explicitly passed to subprocess by Claude Desktop
+    - ✅ `os.getenv()` calls now find keys from subprocess environment
+    - ✅ Server initialization succeeds
+    - ✅ All MCP tools now work correctly
+  - **Config Changes**:
+    ```json
+    // Before (missing env field):
+    {
+      "mcpServers": {
+        "legal-rag-server": {
+          "command": "uv",
+          "args": [
+            "--directory",
+            "C:\\Users\\joong\\OneDrive\\Documents\\Coding\\MCP Sever\\MCP_Server",
+            "run",
+            "--python",
+            "3.13",
+            "legal_rag_server.py"
+          ]
+        }
+      }
+    }
+
+    // After (with env field):
+    {
+      "mcpServers": {
+        "legal-rag-server": {
+          "command": "uv",
+          "args": [
+            "--directory",
+            "C:\\Users\\joong\\OneDrive\\Documents\\Coding\\MCP Sever\\MCP_Server",
+            "run",
+            "--python",
+            "3.13",
+            "legal_rag_server.py"
+          ],
+          "env": {
+            "SUPABASE_URL": "http://185.28.22.212:8000",
+            "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGci...[truncated]",
+            "OPENAI_API_KEY": "sk-proj-...[truncated]",
+            "COHERE_API_KEY": "dOuDhVGel...[truncated]"
+          }
+        }
+      }
+    }
+    ```
+  - **Date Fixed**: 2025-12-10
+  - **Testing**:
+    - ✅ Restarted Claude Desktop after config update
+    - ✅ MCP server now starts successfully
+    - ✅ Server connects and appears as available in Claude Desktop
+    - ✅ All 4 MCP tools accessible
+    - ✅ Semantic search queries work correctly
+    - ✅ Test query about SAFEs returned results successfully
+    - ✅ User confirmed: "now it works!!!!!!!!"
+  - **Key Lessons Learned**:
+    - **MCP Best Practice**: Always include `env` field in Claude Desktop config when server needs API keys or environment variables
+    - `load_dotenv()` in Python code is not sufficient when running through MCP - environment must be passed from parent process
+    - `uv run` creates isolated subprocess environment - doesn't inherit parent environment variables automatically
+    - Test scripts may work while MCP integration fails if test runs from different working directory with different environment
+    - The `--directory` flag tells `uv` where to find the project files, but doesn't handle environment variables
+    - "No result received from client-side tool execution" error in Claude Desktop often means server crashed during initialization
+    - Check server logs (`legal_rag_server.log`) to see actual error messages when Claude Desktop integration fails
+    - According to official MCP documentation, the `env` field in Claude Desktop config is the recommended way to pass environment variables to MCP servers
+
 ### Important Issues (Fix Before Production)
 
 - [x] **Issue 5: No proper logging framework** ✅

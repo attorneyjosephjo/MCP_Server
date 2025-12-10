@@ -7,3 +7,168 @@
 2025-12-10 12:46:59,014 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
 2025-12-10 12:50:55,900 - legal_rag - INFO - Creating new Supabase client
 2025-12-10 12:50:56,581 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 404 Not Found"
+2025-12-10 12:58:25,150 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 12:58:25,159 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 12:58:25,197 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-10 12:58:25,199 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-10 12:58:25,200 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-10 12:58:54,982 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2025-12-10 12:58:59,094 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 13:02:56,021 - legal_rag - INFO - Creating new Supabase client
+2025-12-10 13:02:56,652 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 400 Bad Request"
+2025-12-10 13:07:59,500 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 13:07:59,522 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 13:08:05,558 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 13:08:05,563 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 13:08:05,579 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-10 13:08:05,580 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-10 13:08:05,580 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-10 13:08:25,441 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2025-12-10 13:08:28,133 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 13:12:25,700 - legal_rag - INFO - Creating new Supabase client
+2025-12-10 13:12:26,626 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 200 OK"
+2025-12-10 13:18:34,054 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 13:18:34,065 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 13:18:42,957 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 13:18:42,966 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 13:18:43,021 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-10 13:18:43,022 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-10 13:18:43,024 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-10 13:19:08,741 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2025-12-10 13:19:08,741 - legal_rag - INFO - Starting embedding generation for query: SAFE agreement...
+2025-12-10 13:19:10,329 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 13:23:08,964 - legal_rag - INFO - Embedding generated successfully, length: 1536
+2025-12-10 13:23:08,964 - legal_rag - INFO - Starting Supabase vector search...
+2025-12-10 13:23:08,964 - legal_rag - INFO - About to call asyncio.to_thread(_vector_search)...
+2025-12-10 13:23:08,964 - legal_rag - INFO - Inside _vector_search, getting Supabase client...
+2025-12-10 13:23:08,966 - legal_rag - INFO - Creating new Supabase client
+2025-12-10 13:23:08,993 - legal_rag - INFO - Calling RPC function: match_n8n_law_startuplaw with count: 20
+2025-12-10 13:23:09,802 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 200 OK"
+2025-12-10 13:39:08,862 - legal_rag - INFO - Starting embedding generation for query: What are the key terms in a SAFE agreement?...
+2025-12-10 13:39:10,394 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 13:39:10,499 - legal_rag - INFO - Embedding generated successfully, length: 1536
+2025-12-10 13:39:10,500 - legal_rag - INFO - Starting Supabase vector search...
+2025-12-10 13:39:10,500 - legal_rag - INFO - About to call asyncio.to_thread(_vector_search)...
+2025-12-10 13:39:10,500 - legal_rag - INFO - Inside _vector_search, getting Supabase client...
+2025-12-10 13:39:10,500 - legal_rag - INFO - Creating new Supabase client
+2025-12-10 13:39:10,884 - legal_rag - INFO - Calling RPC function: match_n8n_law_startuplaw with count: 20
+2025-12-10 13:39:12,057 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 200 OK"
+2025-12-10 13:39:13,904 - legal_rag - INFO - Supabase search completed, got 20 results
+2025-12-10 13:39:13,904 - legal_rag - INFO - Starting Cohere reranking with 20 documents...
+2025-12-10 13:39:14,584 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v2/rerank "HTTP/1.1 200 OK"
+2025-12-10 13:39:14,588 - legal_rag - INFO - Reranking completed, returning 10 results
+2025-12-10 13:39:14,588 - legal_rag - INFO - Returning final results...
+2025-12-10 13:41:43,241 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 13:41:43,248 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 13:41:52,425 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 13:41:52,429 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 13:41:52,443 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-10 13:41:52,444 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-10 13:41:52,445 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-10 13:42:13,286 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2025-12-10 13:42:13,286 - legal_rag - INFO - Starting embedding generation for query: SAFE...
+2025-12-10 13:42:14,946 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 13:46:14,769 - legal_rag - INFO - Embedding generated successfully, length: 1536
+2025-12-10 13:46:14,769 - legal_rag - INFO - Starting Supabase vector search...
+2025-12-10 13:46:14,770 - legal_rag - INFO - About to call asyncio.to_thread(_vector_search)...
+2025-12-10 13:46:14,770 - legal_rag - INFO - Inside _vector_search, getting Supabase client...
+2025-12-10 13:46:14,773 - legal_rag - INFO - Creating new Supabase client
+2025-12-10 13:46:14,811 - legal_rag - INFO - Calling RPC function: match_n8n_law_startuplaw with count: 10
+2025-12-10 13:46:15,494 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 200 OK"
+2025-12-10 13:46:20,570 - legal_rag - INFO - Starting embedding generation for query: What are the key terms in a SAFE agreement?...
+2025-12-10 13:46:22,485 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 13:46:22,848 - legal_rag - INFO - Embedding generated successfully, length: 1536
+2025-12-10 13:46:22,848 - legal_rag - INFO - Starting Supabase vector search...
+2025-12-10 13:46:22,848 - legal_rag - INFO - About to call asyncio.to_thread(_vector_search)...
+2025-12-10 13:46:22,848 - legal_rag - INFO - Inside _vector_search, getting Supabase client...
+2025-12-10 13:46:22,848 - legal_rag - INFO - Creating new Supabase client
+2025-12-10 13:46:23,072 - legal_rag - INFO - Calling RPC function: match_n8n_law_startuplaw with count: 20
+2025-12-10 13:46:25,005 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 200 OK"
+2025-12-10 13:46:25,816 - legal_rag - INFO - Supabase search completed, got 20 results
+2025-12-10 13:46:25,817 - legal_rag - INFO - Starting Cohere reranking with 20 documents...
+2025-12-10 13:46:29,965 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v2/rerank "HTTP/1.1 200 OK"
+2025-12-10 13:46:29,967 - legal_rag - INFO - Reranking completed, returning 10 results
+2025-12-10 13:46:29,967 - legal_rag - INFO - Returning final results...
+2025-12-10 13:47:13,319 - legal_rag - INFO - Starting embedding generation for query: What are the key terms in a SAFE agreement?...
+2025-12-10 13:47:14,818 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 13:47:15,029 - legal_rag - INFO - Embedding generated successfully, length: 1536
+2025-12-10 13:47:15,029 - legal_rag - INFO - Starting Supabase vector search...
+2025-12-10 13:47:15,030 - legal_rag - INFO - About to call asyncio.to_thread(_vector_search)...
+2025-12-10 13:47:15,030 - legal_rag - INFO - Inside _vector_search, getting Supabase client...
+2025-12-10 13:47:15,030 - legal_rag - INFO - Creating new Supabase client
+2025-12-10 13:47:15,416 - legal_rag - INFO - Calling RPC function: match_n8n_law_startuplaw with count: 20
+2025-12-10 13:47:16,305 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 200 OK"
+2025-12-10 13:47:18,096 - legal_rag - INFO - Supabase search completed, got 20 results
+2025-12-10 13:47:18,097 - legal_rag - INFO - Starting Cohere reranking with 20 documents...
+2025-12-10 13:47:18,784 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v2/rerank "HTTP/1.1 200 OK"
+2025-12-10 13:47:18,788 - legal_rag - INFO - Reranking completed, returning 10 results
+2025-12-10 13:47:18,788 - legal_rag - INFO - Returning final results...
+2025-12-10 13:48:58,831 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 13:48:58,844 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 13:51:25,603 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 13:51:25,618 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 13:51:27,477 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 13:51:27,492 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 13:51:27,536 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-10 13:51:27,540 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-10 13:51:27,544 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-10 13:53:16,226 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2025-12-10 13:53:16,226 - legal_rag - INFO - Starting embedding generation for query: SAFE Simple Agreement for Future Equity...
+2025-12-10 13:53:18,334 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 13:57:16,632 - legal_rag - INFO - Embedding generated successfully, length: 1536
+2025-12-10 13:57:16,632 - legal_rag - INFO - Starting Supabase vector search...
+2025-12-10 13:57:16,633 - legal_rag - INFO - About to call asyncio.to_thread(_vector_search)...
+2025-12-10 13:57:16,633 - legal_rag - INFO - Inside _vector_search, getting Supabase client...
+2025-12-10 13:57:16,633 - legal_rag - INFO - Creating new Supabase client
+2025-12-10 13:57:16,664 - legal_rag - INFO - Calling RPC function: match_n8n_law_startuplaw with count: 10
+2025-12-10 13:57:17,609 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 200 OK"
+2025-12-10 13:58:20,904 - legal_rag - INFO - Starting embedding generation for query: What are the key terms in a SAFE agreement?...
+2025-12-10 13:58:23,562 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 13:58:23,845 - legal_rag - INFO - Embedding generated successfully, length: 1536
+2025-12-10 13:58:23,845 - legal_rag - INFO - Starting Supabase vector search...
+2025-12-10 13:58:23,845 - legal_rag - INFO - About to call asyncio.to_thread(_vector_search)...
+2025-12-10 13:58:23,846 - legal_rag - INFO - Inside _vector_search, getting Supabase client...
+2025-12-10 13:58:23,846 - legal_rag - INFO - Creating new Supabase client
+2025-12-10 13:58:24,410 - legal_rag - INFO - Calling RPC function: match_n8n_law_startuplaw with count: 20
+2025-12-10 13:58:25,491 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 200 OK"
+2025-12-10 13:58:26,184 - legal_rag - INFO - Supabase search completed, got 20 results
+2025-12-10 13:58:26,184 - legal_rag - INFO - Starting Cohere reranking with 20 documents...
+2025-12-10 13:58:27,044 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v2/rerank "HTTP/1.1 200 OK"
+2025-12-10 13:58:27,048 - legal_rag - INFO - Reranking completed, returning 10 results
+2025-12-10 13:58:27,048 - legal_rag - INFO - Returning final results...
+2025-12-10 14:10:32,835 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 14:10:32,842 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 14:10:42,472 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 14:10:42,476 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 14:10:42,502 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-10 14:10:42,503 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-10 14:10:42,504 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-10 14:11:46,218 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2025-12-10 14:11:46,218 - legal_rag - INFO - Starting embedding generation for query: SAFE Simple Agreement for Future Equity...
+2025-12-10 14:11:47,088 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 14:13:32,768 - legal_rag - INFO - Embedding generated successfully, length: 1536
+2025-12-10 14:13:32,768 - legal_rag - INFO - Starting Supabase vector search...
+2025-12-10 14:13:32,768 - legal_rag - INFO - About to call asyncio.to_thread(_vector_search)...
+2025-12-10 14:13:32,768 - legal_rag - INFO - Inside _vector_search, getting Supabase client...
+2025-12-10 14:13:32,769 - mcp.server.lowlevel.server - INFO - Processing request of type CallToolRequest
+2025-12-10 14:13:32,769 - legal_rag - INFO - Creating new Supabase client
+2025-12-10 14:13:32,769 - legal_rag - INFO - Starting embedding generation for query: SAFE agreement simple agreement future equity...
+2025-12-10 14:13:32,782 - legal_rag - INFO - Calling RPC function: match_n8n_law_startuplaw with count: 20
+2025-12-10 14:13:33,391 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 200 OK"
+2025-12-10 14:13:33,798 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-12-10 14:13:33,800 - legal_rag - INFO - Embedding generated successfully, length: 1536
+2025-12-10 14:13:33,800 - legal_rag - INFO - Starting Supabase vector search...
+2025-12-10 14:13:33,801 - legal_rag - INFO - About to call asyncio.to_thread(_vector_search)...
+2025-12-10 14:13:33,801 - legal_rag - INFO - Inside _vector_search, getting Supabase client...
+2025-12-10 14:13:33,801 - legal_rag - INFO - Calling RPC function: match_n8n_law_startuplaw with count: 20
+2025-12-10 14:13:34,514 - httpx - INFO - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 200 OK"
+2025-12-10 14:13:35,405 - legal_rag - INFO - Supabase search completed, got 20 results
+2025-12-10 14:13:35,405 - legal_rag - INFO - Starting Cohere reranking with 20 documents...
+2025-12-10 14:13:36,075 - legal_rag - INFO - Supabase search completed, got 20 results
+2025-12-10 14:13:36,075 - legal_rag - INFO - Starting Cohere reranking with 20 documents...
+2025-12-10 14:13:36,638 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v2/rerank "HTTP/1.1 200 OK"
+2025-12-10 14:13:36,642 - legal_rag - INFO - Reranking completed, returning 10 results
+2025-12-10 14:13:36,642 - legal_rag - INFO - Returning final results...
+2025-12-10 14:13:37,262 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v2/rerank "HTTP/1.1 200 OK"
+2025-12-10 14:13:37,265 - legal_rag - INFO - Reranking completed, returning 10 results
+2025-12-10 14:13:37,265 - legal_rag - INFO - Returning final results...
