@@ -44,7 +44,9 @@ async def semantic_search_legal_documents(
 
     Args:
         query: Natural language search query (e.g., "How to structure a SAFE agreement?")
-        top_k: Number of results to return (default: 10, max: 100)
+        top_k: Number of results requested (default: 10, max: 10)
+               Note: System returns up to 5 documents to optimize for Claude's context window.
+               If you request 10, you'll receive the top 5 most relevant results.
         document_type: Optional filter - "practice_guide", "agreement", or "clause"
 
     Returns:
@@ -70,10 +72,10 @@ async def semantic_search_legal_documents(
             )
 
         # Validate top_k
-        if top_k < 1 or top_k > 100:
+        if top_k < 1 or top_k > 10:
             return create_error_response(
                 error_type="validation_error",
-                message="top_k must be between 1 and 100"
+                message="top_k must be between 1 and 10"
             )
 
         return await search_documents_with_rerank(

@@ -68,8 +68,8 @@ class LegalRAGConfig:
         if not (self.supabase_url.startswith('https://') or self.supabase_url.startswith('http://')):
             raise ValueError("Supabase URL must start with http:// or https://")
 
-        if self.top_k < 1 or self.top_k > 100:
-            raise ValueError("top_k must be between 1 and 100")
+        if self.top_k < 1 or self.top_k > 10:
+            raise ValueError("top_k must be between 1 and 10")
 
         if self.match_threshold < 0.0 or self.match_threshold > 1.0:
             raise ValueError("match_threshold must be between 0.0 and 1.0")
@@ -290,7 +290,7 @@ async def search_documents_with_rerank(
         def _vector_search():
             logger.info("Inside _vector_search, getting Supabase client...")
             supabase = get_cached_supabase_client(config)
-            search_count = min(top_k * 2, 100)
+            search_count = 15  # Retrieve 15 candidates for reranker
             logger.info(f"Calling RPC function: {config.match_function} with count: {search_count}")
             return supabase.rpc(
                 config.match_function,
@@ -336,14 +336,14 @@ async def search_documents_with_rerank(
             reranked_results = await rerank_documents_async(
                 query=query,
                 documents=filtered_results,
-                top_n=top_k,
+                top_n=min(top_k, 5),  # Cap at 5 documents for Claude context window
                 config=config
             )
             logger.info(f"Reranking completed, returning {len(reranked_results)} results")
         except Exception as e:
             # Fall back to vector similarity scores if reranking fails
             logger.warning(f"Reranking failed: {e}. Falling back to vector similarity scores.")
-            reranked_results = filtered_results[:top_k]
+            reranked_results = filtered_results[:min(top_k, 5)]  # Cap at 5 documents
             for doc in reranked_results:
                 doc['relevance_score'] = doc.get('similarity', 0.0)
 
