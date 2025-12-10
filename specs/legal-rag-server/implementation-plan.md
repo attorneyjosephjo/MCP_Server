@@ -811,6 +811,162 @@ This section tracks issues discovered during code review and their fixes. All ph
   - **Testing**: Container now starts successfully, server listens on 0.0.0.0:3000, health checks pass, deployment completes without errors
   - **Key Lesson**: Always verify which library/package you're using and consult the correct documentation. The official MCP SDK and third-party fastmcp library have similar names but different APIs.
 
+- [x] **Issue 20: Claude Desktop Local Connection Failure - Incorrect Working Directory Configuration** ✅
+  - **Location**: Claude Desktop config at `C:\Users\joong\AppData\Roaming\Claude\claude_desktop_config.json`
+  - **Problem**: Server failed to start in Claude Desktop with error `Failed to spawn: legal_rag_server.py - Caused by: program not found`. The `cwd` parameter in the config wasn't being properly applied when running `uv run legal_rag_server.py`.
+  - **Impact**: Complete failure to connect to local MCP server:
+    - Server process couldn't find the Python script
+    - Connection closed immediately with "program not found" error
+    - MCP server showed as "failed" in Claude Desktop
+    - No tools available to Claude
+  - **Root Cause**: The `cwd` (current working directory) parameter in Claude Desktop's MCP config doesn't always work reliably with `uv`. The `uv run` command needs to know where to find both the script and the `pyproject.toml` file. Using `cwd` alone doesn't guarantee `uv` will look in the right place.
+  - **Error Logs**:
+    ```
+    error: Failed to spawn: `legal_rag_server.py`
+      Caused by: program not found
+    2025-12-10T03:26:33.078Z [legal-rag-server] [info] Server transport closed unexpectedly
+    2025-12-10T03:26:33.078Z [legal-rag-server] [error] Server disconnected
+    ```
+  - **Resolution**:
+    - ✅ Replaced `cwd` parameter with explicit `--directory` flag in uv command
+    - ✅ The `--directory` flag is the proper way to tell uv where to find the project
+    - ✅ Updated args from `["run", "legal_rag_server.py"]` to `["run", "--directory", "C:\\Users\\joong\\OneDrive\\Documents\\Coding\\MCP Sever\\MCP_Server", "legal_rag_server.py"]`
+    - ✅ Removed the separate `cwd` parameter since `--directory` handles it
+  - **Config Changes**:
+    ```json
+    // Before (incorrect - cwd not reliable):
+    {
+      "command": "uv",
+      "args": ["run", "legal_rag_server.py"],
+      "cwd": "C:\\Users\\joong\\OneDrive\\Documents\\Coding\\MCP Sever\\MCP_Server"
+    }
+
+    // After (correct - explicit --directory flag):
+    {
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "C:\\Users\\joong\\OneDrive\\Documents\\Coding\\MCP Sever\\MCP_Server",
+        "legal_rag_server.py"
+      ]
+    }
+    ```
+  - **Date Fixed**: 2025-12-10
+  - **Testing**: Server now starts successfully in Claude Desktop, connects properly, all 4 MCP tools available
+  - **Key Lesson**: When using `uv run` in Claude Desktop MCP configs, use the `--directory` flag instead of the `cwd` parameter for reliable working directory specification.
+
+- [x] **Issue 21: pydantic-core Build Failure - Python 3.14 Compatibility** ✅
+  - **Location**: `pyproject.toml:6`, Claude Desktop config
+  - **Problem**: Server failed to start in Claude Desktop with Rust compilation error when building `pydantic-core==2.33.2`. Error: `could not create link from 'rustup.exe' to 'cargo-miri.exe': Cannot create a file when that file already exists. (os error 183)`. Root cause was using Python 3.14 which doesn't have pre-built wheels for pydantic-core, forcing compilation from source.
+  - **Impact**: Complete failure to start local MCP server:
+    - `pydantic-core` required by `cohere` dependency failed to build
+    - Rust installation conflict during auto-installation
+    - Server transport closed unexpectedly
+    - Claude Desktop showed "Server disconnected" error
+    - No tools available to Claude
+  - **Root Cause**:
+    - Python 3.14 is too new - most packages including `pydantic-core` don't have pre-built binary wheels yet
+    - When wheels aren't available, pip/uv tries to compile from source
+    - pydantic-core requires Rust compiler to build
+    - Automatic Rust installation conflicted with existing rustup at `C:\Users\joong\.rustup\`
+  - **Error Logs**:
+    ```
+    Building pydantic-core==2.33.2
+    × Failed to build `pydantic-core==2.33.2`
+    ├─▶ The build backend returned an error
+    ╰─▶ Call to `maturin.build_wheel` failed (exit code: 1)
+    error: could not create link from 'rustup.exe' to 'cargo-miri.exe':
+    Cannot create a file when that file already exists. (os error 183)
+    subprocess.CalledProcessError: Command '[rustup-init.exe]' returned non-zero exit status 1
+    ```
+  - **Resolution**:
+    - ✅ Updated `pyproject.toml:6` from `requires-python = ">=3.13"` to `requires-python = ">=3.10,<3.14"`
+    - ✅ Added `--python 3.13` flag to Claude Desktop config args to explicitly use Python 3.13
+    - ✅ Python 3.10-3.13 have pre-built wheels for pydantic-core, avoiding Rust compilation
+    - ✅ Cleared puccinialin Rust cache at `C:\Users\joong\AppData\Local\puccinialin` to remove partial installation
+  - **Config Changes**:
+    ```json
+    // Added to args array:
+    "args": [
+      "--directory",
+      "C:\\Users\\joong\\OneDrive\\Documents\\Coding\\MCP Sever\\MCP_Server",
+      "run",
+      "--python",
+      "3.13",
+      "legal_rag_server.py"
+    ]
+    ```
+  - **Date Fixed**: 2025-12-10
+  - **Testing**: Server now starts successfully without Rust compilation, dependencies install cleanly from pre-built wheels
+  - **Key Lesson**: Avoid using the very latest Python versions (like 3.14) for production services until the ecosystem catches up with pre-built binary wheels. Python 3.10-3.12 have the best package compatibility.
+
+- [x] **Issue 22: API Keys Stored in Claude Desktop Config - Security Risk** ✅
+  - **Location**: `claude_desktop_config.json:12-17`, `.env` file
+  - **Problem**: User had API keys (OpenAI, Cohere, Supabase) hardcoded in the Claude Desktop config file's `env` section. This is a security anti-pattern because:
+    - Config files often get backed up to cloud storage (OneDrive, Dropbox, etc.)
+    - Config files may be committed to version control accidentally
+    - Keys stored in plaintext in multiple locations increases exposure risk
+    - Makes key rotation harder - must update in multiple places
+  - **Impact**: Security vulnerability and poor maintainability:
+    - API keys exposed in config file at `C:\Users\joong\AppData\Roaming\Claude\`
+    - OneDrive may sync config file to cloud
+    - Violates principle of least privilege and separation of concerns
+    - Harder to manage keys across different environments
+  - **Root Cause**: User followed an approach of passing environment variables through Claude Desktop config instead of using the project's existing `.env` file pattern. The server already had `load_dotenv()` configured but wasn't being used effectively.
+  - **Existing Setup**:
+    - Server already imports `dotenv` and calls `load_dotenv()` on line 14 of `legal_rag_server.py`
+    - Project already has `.env` file with all necessary keys at correct location
+    - Keys in `.env` and config were identical - unnecessary duplication
+  - **Resolution**:
+    - ✅ Removed entire `env` section from `claude_desktop_config.json` (deleted lines 12-17)
+    - ✅ Server now automatically loads environment variables from `.env` file via `load_dotenv()`
+    - ✅ Keys managed in single location: `MCP_Server/.env` (already gitignored)
+    - ✅ Fixed duplicate "run" argument in config args (was listed twice on lines 6 and 9)
+  - **Config Changes**:
+    ```json
+    // Before (insecure - 21 lines):
+    {
+      "mcpServers": {
+        "legal-rag-server": {
+          "command": "uv",
+          "args": ["run", "--directory", "...", "run", "legal_rag_server.py"],
+          "env": {
+            "SUPABASE_URL": "http://...",
+            "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOi...",
+            "OPENAI_API_KEY": "sk-proj-...",
+            "COHERE_API_KEY": "dOuDhVGel..."
+          }
+        }
+      }
+    }
+
+    // After (secure - 12 lines):
+    {
+      "mcpServers": {
+        "legal-rag-server": {
+          "command": "uv",
+          "args": [
+            "--directory",
+            "C:\\Users\\joong\\OneDrive\\Documents\\Coding\\MCP Sever\\MCP_Server",
+            "run",
+            "--python",
+            "3.13",
+            "legal_rag_server.py"
+          ]
+        }
+      }
+    }
+    ```
+  - **Date Fixed**: 2025-12-10
+  - **Testing**: Server starts successfully, loads all keys from `.env` file, all MCP tools work correctly
+  - **Key Lessons**:
+    - Never store secrets in config files - use environment variables or secret managers
+    - Leverage existing patterns in the codebase (`load_dotenv()` was already there)
+    - Keep secrets in `.env` files that are gitignored
+    - Single source of truth for secrets makes rotation and management easier
+    - Claude Desktop config should only contain server connection details, not application secrets
+
 ### Important Issues (Fix Before Production)
 
 - [x] **Issue 5: No proper logging framework** ✅
@@ -968,14 +1124,14 @@ This section tracks issues discovered during code review and their fixes. All ph
 
 ### Overall Progress
 
-**Critical Issues**: 6/6 fixed ✅
+**Critical Issues**: 7/7 fixed ✅
 **Important Issues**: 4/4 fixed ✅
 **Testing & Documentation**: 2/2 completed ✅
 **Code Quality**: 3/3 addressed ✅ (1 deferred, 1 improved, 1 deferred)
 **Security**: 2/2 addressed ✅
 **Performance**: 2/2 optimized ✅ (1 documented, 1 improved)
 
-**Total**: 19/19 issues resolved ✅
+**Total**: 20/20 issues resolved ✅
 
 ### Summary of Fixes
 
