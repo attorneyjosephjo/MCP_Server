@@ -1062,7 +1062,7 @@ Vector Search Explanation:
          ▼
 ┌──────────────────────────────────────┐
 │  External Services                    │
-│  • Supabase (185.28.22.212:8000)    │
+│  • Supabase (your-supabase-host)     │
 │  • OpenAI (api.openai.com)           │
 │  • Cohere (api.cohere.ai)            │
 └──────────────────────────────────────┘
@@ -1138,7 +1138,7 @@ Vector Search Explanation:
                          ▼
 ┌──────────────────────────────────────────────┐
 │  External Services                            │
-│  • Supabase (185.28.22.212:8000)            │
+│  • Supabase (your-supabase-host:8000)       │
 │  • OpenAI (api.openai.com)                   │
 │  • Cohere (api.cohere.ai)                    │
 └──────────────────────────────────────────────┘

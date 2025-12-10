@@ -1062,7 +1062,295 @@ If issues arise after deployment, follow this rollback procedure:
 
 ---
 
-## Migration Path: Phase 1 → Phase 2 → Phase 3
+## Phase 3A: Email-Based User Management (IMPLEMENTED)
+
+**Objective**: Add email and organization fields for better user management and duplicate prevention.
+
+**Duration**: 1 hour (COMPLETE)
+
+**Status**: ✅ **IMPLEMENTED**
+
+### What Was Added
+
+1. **Database Migration** (`002_add_email_to_api_keys.sql`)
+   - Added `email` column with UNIQUE constraint
+   - Added `organization` column
+   - Email format validation (basic regex)
+   - Max 10 keys per email address (enforced by trigger)
+   - Helper functions for querying by email/organization
+
+2. **Updated `manage_api_keys.py`**
+   - Added `--email` and `--organization` flags to `create` command
+   - Updated `list` command to display email and organization
+   - Backward compatible (email/org are optional)
+
+3. **Benefits**
+   - ✅ **Prevents duplicate users** - Email is unique identifier
+   - ✅ **Better organization** - Track which firm/team owns keys
+   - ✅ **Multiple keys per user** - "Production", "Staging", "Dev" keys for same email
+   - ✅ **User-friendly display** - Keep client names friendly, use email as ID
+   - ✅ **Backward compatible** - Existing keys without email still work
+
+### Usage Examples
+
+```bash
+# Create key with email and organization
+python manage_api_keys.py create \
+    --name "Production Server" \
+    --email "john@thejolawfirm.com" \
+    --organization "The Jo Law Firm"
+
+# Create multiple keys for same user
+python manage_api_keys.py create \
+    --name "Staging Server" \
+    --email "john@thejolawfirm.com" \
+    --organization "The Jo Law Firm"
+
+# List all keys (now shows email and org)
+python manage_api_keys.py list
+```
+
+### Migration Steps
+
+**To add email to existing keys:**
+
+```sql
+-- Update existing keys manually in Supabase
+UPDATE api_keys 
+SET email = 'admin@thejolawfirm.com', 
+    organization = 'The Jo Law Firm'
+WHERE email IS NULL;
+```
+
+### Database Queries
+
+```sql
+-- Get all keys for a user
+SELECT * FROM get_keys_by_email('john@example.com');
+
+-- Get organization statistics
+SELECT * FROM get_organization_stats('The Jo Law Firm');
+
+-- Find users with multiple keys
+SELECT email, COUNT(*) as key_count 
+FROM api_keys 
+WHERE email IS NOT NULL 
+GROUP BY email 
+HAVING COUNT(*) > 1;
+```
+
+---
+
+## Phase 3C: Notion-Style Individual Organizations (IMPLEMENTED)
+
+**Objective**: Implement proper individual user organizations (Notion-style) where each individual gets their own hidden organization, fixing the broken shared "individuals" organization.
+
+**Duration**: 1-2 hours (COMPLETE)
+
+**Status**: ✅ **IMPLEMENTED**
+
+### The Problem with Shared "individuals" Organization
+
+Previously, all individual users shared a single organization (`00000000-0000-0000-0000-000000000000`). This caused:
+
+1. **Broken Limits**: If the shared org had a limit of 2 keys on the free tier, ALL individuals COMBINED could only create 2 keys total - not 2 per person!
+2. **No Individual Upgrades**: Couldn't upgrade a single individual without upgrading everyone
+3. **Privacy Issues**: Individual users were lumped together in analytics
+4. **Scalability**: The shared org became huge and polluted analytics
+
+### The Solution: Notion-Style Architecture
+
+Like Notion, Slack, and other modern SaaS products, we now use:
+
+**For Individual Users**:
+- Each individual gets their own organization (slug: `user-{hash}`)
+- Organization is marked with `is_individual = true`
+- **Hidden from UI** - individuals never see "organization" settings
+- Limits apply correctly per individual
+- Can upgrade individual users independently
+
+**For Real Organizations**:
+- Organizations created explicitly with company names
+- Marked with `is_individual = false`
+- **Visible in UI** - show org management, team members, etc.
+- Limits apply per organization
+
+### What Was Added
+
+1. **Database Migration** (`005_split_individuals_into_separate_orgs.sql`)
+   - Added `is_individual` boolean column to organizations table
+   - Migrated all users from shared org to individual personal orgs
+   - Created slug pattern: `user-{first 16 chars of sha256(email)}`
+   - Updated views to exclude individual orgs from public analytics
+   - Created separate `individual_users_summary` view for admin
+   - Added helper function: `get_or_create_individual_org(email, tier)`
+   - Added helper function: `get_user_organization(email)` for UI routing
+
+2. **Updated Python Code** (`manage_api_keys.py`)
+   - Added `get_or_create_individual_org()` function
+   - Updated `get_or_create_organization()` to handle individuals properly
+   - Updated `create_api_key()` to create personal orgs for individuals
+   - Fixed organization listing to skip personal orgs (hidden from UI)
+   - Added email validation for individual orgs
+
+3. **Updated Views and Functions**
+   - `organization_summary` - now excludes individuals (`is_individual = false`)
+   - `individual_users_summary` - new view for individual user analytics
+   - `list_organizations_with_usage()` - optional parameter to include individuals
+   - All organization queries properly filter by `is_individual` flag
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    ONBOARDING                            │
+├─────────────────────────────────────────────────────────┤
+│  "How will you use the service?"                        │
+│  [ ] For myself          [ ] With my team               │
+└─────────────────────────────────────────────────────────┘
+                    ↓                    ↓
+        ┌───────────────────┐  ┌─────────────────────┐
+        │   INDIVIDUAL      │  │   ORGANIZATION      │
+        └───────────────────┘  └─────────────────────┘
+                ↓                         ↓
+    Creates hidden org:         Creates visible org:
+    - slug: "user-a1b2c3"       - slug: "acme-corp"
+    - is_individual: true       - is_individual: false
+    - UI: NO ORG SHOWN         - UI: ORG MANAGEMENT
+    - Limits: 2 keys           - Limits: 2 keys per org
+```
+
+### Frontend Experience
+
+**Individual Users See**:
+```
+❌ No "Organization" section
+❌ No team management
+❌ No org settings
+✅ "My Account", "My Plan", "Billing"
+✅ "Upgrade to Pro" (upgrades their personal org)
+```
+
+**Organization Users See**:
+```
+✅ "Organization Settings"
+✅ "Team Members"
+✅ "Organization Billing"
+✅ Org name in sidebar
+✅ "Upgrade Organization"
+```
+
+### Database Schema
+
+```sql
+-- organizations table
+CREATE TABLE organizations (
+    id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    tier TEXT DEFAULT 'free',
+    is_individual BOOLEAN DEFAULT false,  -- NEW: distinguishes individual vs real orgs
+    primary_contact_email TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Example individual org
+INSERT INTO organizations (name, slug, is_individual, primary_contact_email)
+VALUES ('Personal - john@example.com', 'user-a1b2c3d4e5f6', true, 'john@example.com');
+
+-- Example real org
+INSERT INTO organizations (name, slug, is_individual, primary_contact_email)
+VALUES ('Acme Corp', 'acme-corp', false, 'admin@acme.com');
+```
+
+### Usage Examples
+
+```bash
+# Create key for individual user (auto-creates personal org)
+python manage_api_keys.py create \
+    --name "Production" \
+    --email "john@example.com" \
+    --tier "free"
+# Creates org with slug: "user-{hash}" and is_individual=true
+
+# Create key for real organization
+python manage_api_keys.py create \
+    --name "Production" \
+    --email "admin@acme.com" \
+    --organization "Acme Corp" \
+    --tier "pro"
+# Creates org with slug: "acme-corp" and is_individual=false
+
+# List only real organizations (excludes individuals)
+python manage_api_keys.py list-orgs
+# Shows only organizations with is_individual=false
+
+# Admin view: See individual user stats
+SELECT * FROM individual_users_summary;
+
+# Public view: See organization stats (individuals excluded)
+SELECT * FROM organization_summary;
+```
+
+### Migration Process
+
+The migration automatically:
+1. ✅ Adds `is_individual` column to organizations
+2. ✅ Creates individual org for each unique email in shared "individuals" org
+3. ✅ Moves all keys to their respective personal organizations
+4. ✅ Marks old shared org as inactive (preserved for history)
+5. ✅ Updates all views and functions
+6. ✅ Prints migration summary with counts
+
+**Zero downtime** - All existing keys continue to work during migration.
+
+### Benefits
+
+- ✅ **Correct Limits**: Each individual gets their own key limit (2 keys on free tier)
+- ✅ **Individual Upgrades**: Can upgrade "john@example.com" to pro without affecting others
+- ✅ **Clean Analytics**: Real organizations and individuals tracked separately
+- ✅ **UI Flexibility**: Hide org UI for individuals, show for real orgs
+- ✅ **Scalability**: No single org with thousands of users
+- ✅ **Future Billing**: Easy to charge individuals separately
+
+### Database Queries
+
+```sql
+-- Get a user's organization (for UI routing)
+SELECT * FROM get_user_organization('john@example.com');
+
+-- List all real organizations (for public directory)
+SELECT * FROM list_organizations_with_usage(false);
+
+-- List all individual users (admin view)
+SELECT * FROM list_organizations_with_usage(true) WHERE is_individual = true;
+
+-- Get individual user stats
+SELECT * FROM individual_users_summary WHERE email = 'john@example.com';
+
+-- Get organization stats
+SELECT * FROM organization_summary WHERE slug = 'acme-corp';
+```
+
+### Backward Compatibility
+
+- ✅ All existing API keys continue to work
+- ✅ Python CLI code handles both modes automatically
+- ✅ Database functions accept optional parameters
+- ✅ No breaking changes to API
+
+### Next Steps (Future - Phase 3D)
+
+With this foundation in place, we can now:
+1. Add user authentication (Supabase Auth)
+2. Build frontend with conditional UI based on `is_individual`
+3. Implement self-service key creation
+4. Add billing per organization (including individual orgs)
+
+---
+
+## Migration Path: Phase 1 → Phase 2 → Phase 3A → Phase 3C
 
 ### From Phase 1 to Phase 2 (Zero Downtime)
 1. Deploy Phase 2 code with `MCP_API_AUTH_DB_ENABLED=false`
@@ -1073,11 +1361,19 @@ If issues arise after deployment, follow this rollback procedure:
 6. Monitor logs and metrics
 7. Remove environment variable keys (optional)
 
-### From Phase 2 to Phase 3 (Zero Downtime)
-1. Deploy Phase 3 backend with user auth
+### From Phase 3A to Phase 3C (Zero Downtime)
+1. Run migration `005_split_individuals_into_separate_orgs.sql` in Supabase
+2. Migration automatically creates personal orgs for each unique email
+3. All API keys continue to work without changes
+4. Verify migration with provided queries
+5. Test creating new individual keys (should auto-create personal orgs)
+6. Monitor logs for any issues
+
+### From Phase 3C to Phase 3D (Zero Downtime)
+1. Deploy Phase 3D backend with user auth
 2. Add `user_id` column to api_keys (nullable)
 3. Migrate existing keys to admin user
-4. Deploy frontend dashboard
+4. Deploy frontend dashboard with conditional UI based on `is_individual`
 5. Announce self-service portal to users
 6. Keep manual provisioning available (admin)
 7. Phase out manual provisioning over time
@@ -1086,23 +1382,41 @@ If issues arise after deployment, follow this rollback procedure:
 
 ## Conclusion
 
-This three-phase implementation plan provides a clear roadmap for evolving the Legal RAG MCP Server's authentication:
+This multi-phase implementation plan provides a clear roadmap for evolving the Legal RAG MCP Server's authentication:
 
 **Phase 1 (Complete)**: Environment variable-based auth for immediate needs
 - ✅ Quick to implement (2-3 hours)
 - ✅ Good for 2-10 clients
 - ✅ No database complexity
 
-**Phase 2 (Current)**: Database-backed auth for scale
-- 🎯 Supports unlimited clients
-- 🎯 Usage tracking & analytics
-- 🎯 Rate limiting & expiration
-- 🎯 Manual provisioning (3-4 hours)
+**Phase 2 (Complete)**: Database-backed auth for scale
+- ✅ Supports unlimited clients
+- ✅ Usage tracking & analytics
+- ✅ Rate limiting & expiration
+- ✅ Manual provisioning (3-4 hours)
 
-**Phase 3 (Future)**: Self-service for production API
+**Phase 3A (Complete)**: Email-based user management
+- ✅ Unique email identifiers
+- ✅ Organization tracking
+- ✅ Multiple keys per user
+- ✅ Duplicate prevention (1 hour)
+
+**Phase 3B (Future - Tier-Based Limits)**: Tier-based API key limits
+- 🚀 API key tiers (free, pro, enterprise)
+- 🚀 Tier-based rate limits
+- 🚀 Automatic tier enforcement
+
+**Phase 3C (Implemented)**: Notion-Style Individual Organizations
+- ✅ One organization per individual user (hidden from UI)
+- ✅ Separate organizations for real companies (visible in UI)
+- ✅ Proper limit enforcement per organization
+- ✅ Support for individual upgrades
+- ✅ Clean analytics separation (1-2 hours)
+
+**Phase 3D (Future)**: Self-service for production API
 - 🚀 User authentication & portal
 - 🚀 Web dashboard & analytics
 - 🚀 Billing integration
 - 🚀 Advanced features (2-3 weeks)
 
-By following this incremental approach, the MCP server can scale from a simple authentication system to a production-grade API platform without breaking changes at each phase.
+By following this incremental approach, the MCP server has evolved from a simple authentication system to a production-ready API platform with proper user management, without breaking changes at each phase.

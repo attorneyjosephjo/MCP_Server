@@ -39,7 +39,7 @@ Self-hosted MCP servers are deployed to remote servers (e.g., via Coolify) and a
 ### Prerequisites
 
 - Server deployed and running
-- Domain configured with HTTPS (e.g., `https://startuplawrag.thejolawfirm.uk`)
+- Domain configured with HTTPS (e.g., `https://your-domain.com`)
 - Access to terminal with curl or HTTP client
 
 ### Test 1: Health Check
@@ -47,7 +47,7 @@ Self-hosted MCP servers are deployed to remote servers (e.g., via Coolify) and a
 Test if the server is running and accessible.
 
 ```bash
-curl https://startuplawrag.thejolawfirm.uk/health
+curl https://your-domain.com/health
 ```
 
 **Expected Response:**
@@ -71,7 +71,7 @@ curl https://startuplawrag.thejolawfirm.uk/health
 Check server information and available endpoints.
 
 ```bash
-curl https://startuplawrag.thejolawfirm.uk/
+curl https://your-domain.com/
 ```
 
 **Expected Response:**
@@ -98,7 +98,7 @@ curl https://startuplawrag.thejolawfirm.uk/
 Start an MCP protocol session and get session ID.
 
 ```bash
-curl -i -X POST https://startuplawrag.thejolawfirm.uk/mcp \
+curl -i -X POST https://your-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{
@@ -146,7 +146,7 @@ After initialization, send the initialized notification.
 # Replace with your session ID from Test 3
 SESSION_ID="4abcfa25cde14c60930b70e7e1b674f0"
 
-curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
+curl -X POST https://your-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Mcp-Session-Id: $SESSION_ID" \
@@ -168,7 +168,7 @@ curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
 Get all available MCP tools.
 
 ```bash
-curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
+curl -X POST https://your-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Mcp-Session-Id: $SESSION_ID" \
@@ -197,7 +197,7 @@ data: {"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"semantic_search_legal_
 Test the semantic search functionality.
 
 ```bash
-curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
+curl -X POST https://your-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Mcp-Session-Id: $SESSION_ID" \
@@ -269,7 +269,7 @@ The test is **ONLY successful** if you receive **real document content** in the 
 
 **Browse by Type:**
 ```bash
-curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
+curl -X POST https://your-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Mcp-Session-Id: $SESSION_ID" \
@@ -289,7 +289,7 @@ curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
 
 **List All Documents:**
 ```bash
-curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
+curl -X POST https://your-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Mcp-Session-Id: $SESSION_ID" \
@@ -424,7 +424,7 @@ curl -i -X POST http://localhost:3000/mcp \
 ### Test 4: Local Tool Testing
 
 Use the same commands as self-hosted, but replace:
-- `https://startuplawrag.thejolawfirm.uk` → `http://localhost:3000`
+- `https://your-domain.com` → `http://localhost:3000`
 
 **Example:**
 ```bash
@@ -572,7 +572,7 @@ class MCPClient:
 # Usage
 if __name__ == "__main__":
     # Test self-hosted
-    client = MCPClient("https://startuplawrag.thejolawfirm.uk")
+    client = MCPClient("https://your-domain.com")
 
     # Or test local
     # client = MCPClient("http://localhost:3000")
@@ -890,7 +890,7 @@ Save as `test_selfhosted.sh`:
 ```bash
 #!/bin/bash
 
-BASE_URL="https://startuplawrag.thejolawfirm.uk"
+BASE_URL="https://your-domain.com"
 
 echo "=== Testing Self-Hosted MCP Server ==="
 

@@ -172,3 +172,28 @@
 2025-12-10 14:13:37,262 - httpx - INFO - HTTP Request: POST https://api.cohere.com/v2/rerank "HTTP/1.1 200 OK"
 2025-12-10 14:13:37,265 - legal_rag - INFO - Reranking completed, returning 10 results
 2025-12-10 14:13:37,265 - legal_rag - INFO - Returning final results...
+2025-12-10 16:37:22,100 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 16:37:22,103 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 16:37:22,116 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-10 16:37:22,117 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-10 16:37:22,118 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-10 16:38:36,701 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 16:38:36,710 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 16:38:36,736 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-10 16:38:36,738 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-10 16:38:36,739 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-10 16:39:12,964 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 16:39:12,973 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 16:39:13,039 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-10 16:39:13,041 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-10 16:39:13,042 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-10 16:41:38,531 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 16:41:38,535 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 16:41:38,577 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-10 16:41:38,579 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-10 16:41:38,588 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-10 16:42:43,610 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-10 16:42:43,614 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-10 16:42:43,626 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-10 16:42:43,627 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-10 16:42:43,628 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest

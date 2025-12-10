@@ -987,7 +987,7 @@ This section tracks issues discovered during code review and their fixes. All ph
     2025-12-10 12:46:54,851 - Processing request of type CallToolRequest
     2025-12-10 12:46:59,014 - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
     2025-12-10 12:50:55,900 - Creating new Supabase client
-    2025-12-10 12:50:56,581 - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 404 Not Found"
+    2025-12-10 12:50:56,581 - HTTP Request: POST http://your-supabase-host:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 404 Not Found"
     ```
     (Note: 4 minute gap between embeddings success and Supabase call attempt)
   - **Discovery Process**:
@@ -1036,7 +1036,7 @@ This section tracks issues discovered during code review and their fixes. All ph
     - ✅ Both workflows can operate independently without conflicts
   - **Additional Issue - Return Type Mismatch**: After creating the function, got HTTP 400 error instead of 404:
     ```
-    2025-12-10 13:02:56,652 - HTTP Request: POST http://185.28.22.212:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 400 Bad Request"
+    2025-12-10 13:02:56,652 - HTTP Request: POST http://your-supabase-host:8000/rest/v1/rpc/match_n8n_law_startuplaw "HTTP/1.1 400 Bad Request"
     ```
     - Error message: `"structure of query does not match function result type"` / `"Returned type bigint does not match expected type uuid in column 1"`
     - Root cause: Function was defined with `RETURNS TABLE (id uuid, ...)` but actual table has `id bigint`
@@ -1371,8 +1371,8 @@ This section tracks issues discovered during code review and their fixes. All ph
             "legal_rag_server.py"
           ],
           "env": {
-            "SUPABASE_URL": "http://185.28.22.212:8000",
-            "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGci...[truncated]",
+            "SUPABASE_URL": "https://your-project.supabase.co",
+            "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key-here",
             "OPENAI_API_KEY": "sk-proj-...[truncated]",
             "COHERE_API_KEY": "dOuDhVGel...[truncated]"
           }

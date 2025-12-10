@@ -86,10 +86,10 @@ CREATE TABLE IF NOT EXISTS api_key_usage (
 CREATE INDEX IF NOT EXISTS idx_api_key_usage_key_id_timestamp
     ON api_key_usage(api_key_id, timestamp DESC);
 
--- Partial index for recent data (optimize rate limiting queries)
+-- Index for recent data (optimize rate limiting queries)
+-- Note: Cannot use WHERE timestamp > NOW() - INTERVAL '7 days' because NOW() is not IMMUTABLE
 CREATE INDEX IF NOT EXISTS idx_api_key_usage_recent
-    ON api_key_usage(api_key_id, timestamp)
-    WHERE timestamp > NOW() - INTERVAL '7 days';
+    ON api_key_usage(api_key_id, timestamp);
 
 COMMENT ON TABLE api_key_usage IS 'Tracks every API request for analytics and rate limiting';
 COMMENT ON COLUMN api_key_usage.metadata IS 'Optional JSONB field for tool_name, query params, response time, etc.';

@@ -18,7 +18,7 @@ import argparse
 import hashlib
 import secrets
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -82,8 +82,109 @@ def get_key_prefix(api_key: str) -> str:
     return f"api_{api_key[:5]}"
 
 
+def generate_slug(name: str) -> str:
+    """Generate URL-safe slug from organization name.
+
+    Args:
+        name: Organization name
+
+    Returns:
+        str: Lowercase slug with hyphens
+    """
+    import re
+    slug = name.lower()
+    slug = re.sub(r'[^a-z0-9]+', '-', slug)
+    slug = slug.strip('-')
+    return slug
+
+
+def get_or_create_individual_org(email: str, tier: str = "free") -> str:
+    """Get or create a personal organization for an individual user.
+
+    This creates a hidden "personal" organization (Notion-style approach).
+    The organization is not shown in the UI for the individual user.
+
+    Args:
+        email: User's email address
+        tier: Subscription tier (default: free)
+
+    Returns:
+        str: Organization ID (UUID)
+    """
+    supabase = get_supabase_client()
+
+    try:
+        # Call database function to get or create individual org
+        result = supabase.rpc("get_or_create_individual_org", {
+            "user_email": email,
+            "user_tier": tier
+        }).execute()
+
+        return result.data
+
+    except Exception as e:
+        console.print(f"[red]Error creating individual organization: {e}[/red]")
+        raise
+
+
+def get_or_create_organization(
+    name: str,
+    tier: str = "free",
+    email: Optional[str] = None,
+    is_individual: bool = False
+) -> str:
+    """Get existing organization by name or create new one.
+
+    Args:
+        name: Organization name
+        tier: Subscription tier
+        email: Primary contact email
+        is_individual: If True, creates a personal org (hidden from UI)
+
+    Returns:
+        str: Organization ID (UUID)
+    """
+    supabase = get_supabase_client()
+
+    # If this is for an individual user, use the individual org function
+    if is_individual or name.lower() in ["individual", "individuals", "personal", "solo"]:
+        if not email:
+            console.print("[red]Error: Email required for individual organizations[/red]")
+            raise ValueError("Email required for individual organizations")
+        return get_or_create_individual_org(email, tier)
+
+    # Generate slug for real organization
+    slug = generate_slug(name)
+
+    try:
+        # Check if organization exists by slug
+        result = supabase.table("organizations").select("id").eq("slug", slug).eq("is_individual", False).execute()
+
+        if result.data:
+            return result.data[0]["id"]
+
+        # Create new REAL organization (not individual)
+        data = {
+            "name": name,
+            "slug": slug,
+            "tier": tier,
+            "primary_contact_email": email,
+            "is_individual": False  # Explicitly mark as real org
+        }
+
+        result = supabase.table("organizations").insert(data).execute()
+        return result.data[0]["id"]
+
+    except Exception as e:
+        console.print(f"[red]Error with organization: {e}[/red]")
+        raise
+
+
 def create_api_key(
     name: str,
+    email: Optional[str] = None,
+    organization: Optional[str] = None,
+    tier: str = "free",
     description: Optional[str] = None,
     expires_days: Optional[int] = None,
     rate_limit_minute: Optional[int] = None,
@@ -94,7 +195,10 @@ def create_api_key(
     """Create a new API key.
 
     Args:
-        name: Client name for the key
+        name: Client name for the key (e.g., "Production Server")
+        email: User email address (for identification)
+        organization: Organization name (e.g., "The Jo Law Firm")
+        tier: Subscription tier (applies to organization, not individual key)
         description: Optional description
         expires_days: Number of days until expiration (None = never expires)
         rate_limit_minute: Requests per minute limit
@@ -103,6 +207,20 @@ def create_api_key(
         created_by: Who created this key
     """
     supabase = get_supabase_client()
+
+    # Validate email is provided for individuals
+    if not organization and not email:
+        console.print("[red]Error: Email is required when no organization is specified[/red]")
+        sys.exit(1)
+
+    # Get or create organization
+    if organization:
+        # User specified an organization name - create a real org
+        organization_id = get_or_create_organization(organization, tier, email, is_individual=False)
+    else:
+        # No organization specified - create personal org for this individual
+        organization_id = get_or_create_individual_org(email, tier)
+        organization = "Individual"  # Display name (for backward compatibility)
 
     # Generate key
     api_key = generate_api_key()
@@ -119,6 +237,10 @@ def create_api_key(
         "key_hash": key_hash,
         "key_prefix": key_prefix,
         "client_name": name,
+        "email": email,
+        "organization": organization,  # Display name (kept for backward compatibility)
+        "organization_id": organization_id,  # NEW: Foreign key to organizations table
+        "tier": tier,
         "description": description,
         "expires_at": expires_at,
         "rate_limit_per_minute": rate_limit_minute,
@@ -170,7 +292,7 @@ def list_api_keys(active_only: bool = False, expired_only: bool = False):
 
         # Filter expired keys if requested
         if expired_only:
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             keys = [k for k in keys if k.get("expires_at") and datetime.fromisoformat(k["expires_at"].replace("Z", "+00:00")) < now]
 
         if not keys:
@@ -182,6 +304,9 @@ def list_api_keys(active_only: bool = False, expired_only: bool = False):
         table.add_column("ID", style="cyan", no_wrap=True)
         table.add_column("Prefix", style="magenta")
         table.add_column("Client Name", style="green")
+        table.add_column("Email", style="blue")
+        table.add_column("Organization", style="cyan")
+        table.add_column("Tier", style="yellow")
         table.add_column("Status", style="yellow")
         table.add_column("Created", style="blue")
         table.add_column("Last Used", style="blue")
@@ -197,7 +322,7 @@ def list_api_keys(active_only: bool = False, expired_only: bool = False):
 
             if expires_at:
                 exp_date = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-                if exp_date < datetime.now():
+                if exp_date < datetime.now(timezone.utc):
                     status = "⏰ Expired"
 
             # Format dates
@@ -214,6 +339,9 @@ def list_api_keys(active_only: bool = False, expired_only: bool = False):
                 str(key["id"])[:8] + "...",
                 key["key_prefix"] + "***",
                 key["client_name"],
+                key.get("email", "-") or "-",
+                key.get("organization", "-") or "-",
+                key.get("tier", "free") or "free",
                 status,
                 created,
                 last_used,
@@ -466,6 +594,193 @@ def cleanup_keys(days: int = 90):
         sys.exit(1)
 
 
+def list_organizations():
+    """List all organizations with usage statistics."""
+    supabase = get_supabase_client()
+
+    try:
+        # Call database function
+        result = supabase.rpc("list_organizations_with_usage").execute()
+        orgs = result.data
+
+        if not orgs:
+            console.print("[yellow]No organizations found.[/yellow]")
+            return
+
+        # Create table
+        table = Table(title="Organizations", box=box.ROUNDED)
+        table.add_column("Name", style="green")
+        table.add_column("Slug", style="cyan")
+        table.add_column("Tier", style="yellow")
+        table.add_column("Keys Used", justify="right")
+        table.add_column("Keys Limit", justify="right")
+        table.add_column("Users", justify="right", style="blue")
+        table.add_column("Requests", justify="right", style="magenta")
+        table.add_column("Status", style="yellow")
+
+        for org in orgs:
+            # Skip individual personal orgs (hidden from UI)
+            if org.get("is_individual", False):
+                continue
+
+            status = "🟢 Active" if org["is_active"] else "🔴 Inactive"
+            usage = f"{org['keys_used']}/{org['keys_limit']}"
+
+            table.add_row(
+                org["name"],
+                org["slug"],
+                org["tier"].upper(),
+                str(org["keys_used"]),
+                str(org["keys_limit"]),
+                str(org["unique_users"]),
+                str(org["total_requests"]),
+                status
+            )
+
+        console.print()
+        console.print(table)
+        console.print()
+
+    except Exception as e:
+        console.print(f"[red]Error listing organizations: {e}[/red]")
+        sys.exit(1)
+
+
+def create_organization(
+    name: str,
+    tier: str = "free",
+    email: Optional[str] = None,
+    website: Optional[str] = None
+):
+    """Create a new organization.
+
+    Args:
+        name: Organization name
+        tier: Subscription tier
+        email: Primary contact email
+        website: Organization website
+    """
+    supabase = get_supabase_client()
+
+    slug = generate_slug(name)
+
+    try:
+        # Check if slug already exists
+        result = supabase.table("organizations").select("id").eq("slug", slug).execute()
+
+        if result.data:
+            console.print(f"[yellow]Organization with slug '{slug}' already exists.[/yellow]")
+            return
+
+        # Create organization
+        data = {
+            "name": name,
+            "slug": slug,
+            "tier": tier,
+            "primary_contact_email": email,
+            "website": website
+        }
+
+        result = supabase.table("organizations").insert(data).execute()
+
+        console.print()
+        console.print(Panel(
+            f"[green]✅ Organization created successfully![/green]\n\n"
+            f"Name: {name}\n"
+            f"Slug: {slug}\n"
+            f"Tier: {tier}\n"
+            f"ID: {result.data[0]['id']}",
+            title="Organization Created",
+            border_style="green"
+        ))
+        console.print()
+
+    except Exception as e:
+        console.print(f"[red]Error creating organization: {e}[/red]")
+        sys.exit(1)
+
+
+def list_tiers():
+    """List all available subscription tiers."""
+    supabase = get_supabase_client()
+
+    try:
+        result = supabase.table("api_key_tiers").select("*").order("max_keys_per_email").execute()
+        tiers = result.data
+
+        if not tiers:
+            console.print("[yellow]No tiers configured.[/yellow]")
+            return
+
+        # Create table
+        table = Table(title="Subscription Tiers", box=box.ROUNDED)
+        table.add_column("Tier", style="cyan")
+        table.add_column("Max Keys", justify="right", style="green")
+        table.add_column("Rate/Min", justify="right")
+        table.add_column("Rate/Hour", justify="right")
+        table.add_column("Rate/Day", justify="right")
+        table.add_column("Price/Month", justify="right", style="yellow")
+        table.add_column("Description", style="blue")
+
+        for tier in tiers:
+            price = f"${tier['price_monthly']}" if tier['price_monthly'] else "Custom"
+            table.add_row(
+                tier["tier_name"].upper(),
+                str(tier["max_keys_per_email"]),
+                str(tier["rate_limit_per_minute"]),
+                str(tier["rate_limit_per_hour"]),
+                str(tier["rate_limit_per_day"]),
+                price,
+                tier.get("description", "-")
+            )
+
+        console.print()
+        console.print(table)
+        console.print()
+
+    except Exception as e:
+        console.print(f"[red]Error listing tiers: {e}[/red]")
+        sys.exit(1)
+
+
+def change_organization_tier(org_slug: str, new_tier: str):
+    """Change an organization's subscription tier.
+
+    Args:
+        org_slug: Organization slug (e.g., "acme-corp")
+        new_tier: New tier name
+    """
+    supabase = get_supabase_client()
+
+    try:
+        # Get organization ID from slug
+        result = supabase.table("organizations").select("id").eq("slug", org_slug).execute()
+
+        if not result.data:
+            console.print(f"[red]Organization '{org_slug}' not found.[/red]")
+            return
+
+        org_id = result.data[0]["id"]
+
+        # Call database function
+        result = supabase.rpc("change_organization_tier", {
+            "org_id": org_id,
+            "new_tier": new_tier
+        }).execute()
+
+        message = result.data if result.data else "Tier changed successfully"
+        
+        if "Cannot downgrade" in str(message):
+            console.print(f"[red]{message}[/red]")
+        else:
+            console.print(f"[green]✅ {message}[/green]")
+            console.print(f"\n[yellow]Note: Restart the server to apply new rate limits.[/yellow]")
+
+    except Exception as e:
+        console.print(f"[red]Error changing tier: {e}[/red]")
+        sys.exit(1)
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -477,7 +792,10 @@ def main():
 
     # Create command
     create_parser = subparsers.add_parser("create", help="Create a new API key")
-    create_parser.add_argument("--name", required=True, help="Client name")
+    create_parser.add_argument("--name", required=True, help="Client name (e.g., 'Production Server')")
+    create_parser.add_argument("--email", help="User email address (unique identifier)")
+    create_parser.add_argument("--organization", help="Organization name (e.g., 'The Jo Law Firm')")
+    create_parser.add_argument("--tier", default="free", choices=["free", "basic", "professional", "enterprise", "custom"], help="Subscription tier (default: free)")
     create_parser.add_argument("--description", help="Optional description")
     create_parser.add_argument("--expires", type=int, help="Days until expiration (default: never)")
     create_parser.add_argument("--rate-limit-minute", type=int, help="Requests per minute")
@@ -507,6 +825,24 @@ def main():
     cleanup_parser = subparsers.add_parser("cleanup", help="Delete old inactive keys")
     cleanup_parser.add_argument("--days", type=int, default=90, help="Delete keys inactive for N days (default: 90)")
 
+    # Tiers command
+    tiers_parser = subparsers.add_parser("tiers", help="List all subscription tiers")
+
+    # Organizations command
+    orgs_parser = subparsers.add_parser("orgs", help="List all organizations")
+
+    # Create organization command
+    create_org_parser = subparsers.add_parser("create-org", help="Create a new organization")
+    create_org_parser.add_argument("--name", required=True, help="Organization name")
+    create_org_parser.add_argument("--tier", default="free", choices=["free", "basic", "professional", "enterprise", "custom"], help="Subscription tier (default: free)")
+    create_org_parser.add_argument("--email", help="Primary contact email")
+    create_org_parser.add_argument("--website", help="Organization website")
+
+    # Change tier command
+    change_tier_parser = subparsers.add_parser("change-tier", help="Change organization's subscription tier")
+    change_tier_parser.add_argument("org_slug", help="Organization slug (e.g., 'acme-corp')")
+    change_tier_parser.add_argument("tier", choices=["free", "basic", "professional", "enterprise", "custom"], help="New tier")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -517,6 +853,9 @@ def main():
     if args.command == "create":
         create_api_key(
             name=args.name,
+            email=args.email,
+            organization=args.organization,
+            tier=args.tier,
             description=args.description,
             expires_days=args.expires,
             rate_limit_minute=args.rate_limit_minute,
@@ -536,6 +875,19 @@ def main():
         show_usage(args.key_id_or_name, args.days)
     elif args.command == "cleanup":
         cleanup_keys(args.days)
+    elif args.command == "tiers":
+        list_tiers()
+    elif args.command == "orgs":
+        list_organizations()
+    elif args.command == "create-org":
+        create_organization(
+            name=args.name,
+            tier=args.tier,
+            email=args.email,
+            website=args.website
+        )
+    elif args.command == "change-tier":
+        change_organization_tier(args.org_slug, args.tier)
 
 
 if __name__ == "__main__":

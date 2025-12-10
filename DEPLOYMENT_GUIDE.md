@@ -12,7 +12,7 @@ This guide walks you through:
 ### For Remote Deployment (Coolify):
 - Coolify instance running
 - Docker installed on your server
-- Domain name configured (e.g., `startuplawrag.thejolawfirm.uk`)
+- Domain name configured (e.g., `your-domain.com`)
 - MCP server code ready with Dockerfile
 
 ### For Local Deployment:
@@ -69,26 +69,26 @@ CMD ["python", "legal_rag_server.py", "--http"]
 **Important:** Coolify requires HTTPS for custom domains.
 
 1. Go to **Domains** section in your Coolify app
-2. Add your domain: `startuplawrag.thejolawfirm.uk`
+2. Add your domain: `your-domain.com`
 3. Coolify will automatically:
    - Configure SSL certificate (Let's Encrypt)
    - Set up reverse proxy
    - Enable HTTPS
 
 **Result:** Your MCP server will be accessible at:
-- Base URL: `https://startuplawrag.thejolawfirm.uk`
-- Health Check: `https://startuplawrag.thejolawfirm.uk/health`
-- MCP Endpoint: `https://startuplawrag.thejolawfirm.uk/mcp`
+- Base URL: `https://your-domain.com`
+- Health Check: `https://your-domain.com/health`
+- MCP Endpoint: `https://your-domain.com/mcp`
 
 ### Step 4: Set Environment Variables in Coolify
 
 In Coolify, add your environment variables:
 
 ```bash
-SUPABASE_URL=http://your-supabase-url:8000
-SUPABASE_SERVICE_ROLE_KEY=your-key-here
-OPENAI_API_KEY=sk-proj-...
-COHERE_API_KEY=your-cohere-key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+OPENAI_API_KEY=sk-proj-your-key-here
+COHERE_API_KEY=your-cohere-key-here
 PORT=3000
 HOST=0.0.0.0
 ```
@@ -106,13 +106,13 @@ Test your endpoints:
 
 ```bash
 # Health check
-curl https://startuplawrag.thejolawfirm.uk/health
+curl https://your-domain.com/health
 
 # Expected response:
 # {"status":"healthy","service":"LegalDocumentRAGServer","version":"1.0.0"}
 
 # Root endpoint
-curl https://startuplawrag.thejolawfirm.uk/
+curl https://your-domain.com/
 
 # Expected response:
 # {"service":"Legal RAG MCP Server","status":"running",...}
@@ -141,7 +141,7 @@ uv sync
 Create or verify your `.env` file:
 
 ```bash
-SUPABASE_URL=http://your-supabase-url:8000
+SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 OPENAI_API_KEY=sk-proj-your-openai-key-here
 COHERE_API_KEY=your-cohere-key-here
@@ -197,7 +197,7 @@ For remote servers deployed via Coolify with HTTPS:
   "mcpServers": {
     "startuplegal-rag-server-remote": {
       "type": "http",
-      "url": "https://startuplawrag.thejolawfirm.uk/mcp"
+      "url": "https://your-domain.com/mcp"
     }
   }
 }
@@ -230,8 +230,8 @@ For local servers running on your development machine:
         "legal_rag_server.py"
       ],
       "env": {
-        "SUPABASE_URL": "http://185.28.22.212:8000",
-        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTExMjI4MDAsImV4cCI6MTkwODg4OTIwMH0.AkJ1xe-89rjxqTYNd2SHTbOexI_Altvs4a3oAB5j7G8",
+        "SUPABASE_URL": "https://your-project.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key-here",
         "OPENAI_API_KEY": "sk-proj-your-openai-key-here",
         "COHERE_API_KEY": "your-cohere-key-here"
       }
@@ -261,7 +261,7 @@ You can have both configurations simultaneously:
   "mcpServers": {
     "legal-rag-server-remote": {
       "type": "http",
-      "url": "https://startuplawrag.thejolawfirm.uk/mcp"
+      "url": "https://your-domain.com/mcp"
     },
     "legal-rag-server-local": {
       "command": "uv",
@@ -274,8 +274,8 @@ You can have both configurations simultaneously:
         "legal_rag_server.py"
       ],
       "env": {
-        "SUPABASE_URL": "http://185.28.22.212:8000",
-        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTExMjI4MDAsImV4cCI6MTkwODg4OTIwMH0.AkJ1xe-89rjxqTYNd2SHTbOexI_Altvs4a3oAB5j7G8",
+        "SUPABASE_URL": "https://your-project.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key-here",
         "OPENAI_API_KEY": "sk-proj-your-openai-key-here",
         "COHERE_API_KEY": "your-cohere-key-here"
       }
@@ -327,7 +327,7 @@ Fill in the parameters:
 
 | Parameter | Value |
 |-----------|-------|
-| **Endpoint** | `https://startuplawrag.thejolawfirm.uk/mcp` |
+| **Endpoint** | `https://your-domain.com/mcp` |
 | **Server Transport** | `HTTP Streamable` |
 | **Authentication** | `None` |
 | **Tools to Include** | `All` |
@@ -553,7 +553,7 @@ List all documents with pagination.
 
 ### Test 1: Health Check
 ```bash
-curl https://startuplawrag.thejolawfirm.uk/health
+curl https://your-domain.com/health
 ```
 
 Expected response:
@@ -567,7 +567,7 @@ Expected response:
 
 ### Test 2: Initialize MCP Session
 ```bash
-curl -i -X POST https://startuplawrag.thejolawfirm.uk/mcp \
+curl -i -X POST https://your-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{
@@ -592,13 +592,13 @@ Look for `Mcp-Session-Id` in response headers.
 # Save session ID from previous step
 SESSION_ID="your-session-id-here"
 
-curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
+curl -X POST https://your-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Mcp-Session-Id: $SESSION_ID" \
   -d '{"jsonrpc":"2.0","method":"notifications/initialized"}'
 
-curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
+curl -X POST https://your-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Mcp-Session-Id: $SESSION_ID" \
@@ -607,7 +607,7 @@ curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
 
 ### Test 4: Call a Tool
 ```bash
-curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
+curl -X POST https://your-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Mcp-Session-Id: $SESSION_ID" \
@@ -641,10 +641,10 @@ curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
 
 ```bash
 # Check if server is accessible
-curl -I https://startuplawrag.thejolawfirm.uk/health
+curl -I https://your-domain.com/health
 
 # Test MCP protocol endpoint
-curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
+curl -X POST https://your-domain.com/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
@@ -653,7 +653,7 @@ curl -X POST https://startuplawrag.thejolawfirm.uk/mcp \
 # (Access via Coolify web interface → Your App → Logs)
 
 # Verify SSL certificate
-openssl s_client -connect startuplawrag.thejolawfirm.uk:443 -servername startuplawrag.thejolawfirm.uk
+openssl s_client -connect your-domain.com:443 -servername your-domain.com
 ```
 
 ---
@@ -664,7 +664,7 @@ openssl s_client -connect startuplawrag.thejolawfirm.uk:443 -servername startupl
 ```json
 {
   "type": "http",
-  "url": "http://startuplawrag.thejolawfirm.uk/mcp"
+  "url": "http://your-domain.com/mcp"
 }
 ```
 
@@ -672,7 +672,7 @@ openssl s_client -connect startuplawrag.thejolawfirm.uk:443 -servername startupl
 ```json
 {
   "type": "http",
-  "url": "https://startuplawrag.thejolawfirm.uk/mcp"
+  "url": "https://your-domain.com/mcp"
 }
 ```
 
@@ -682,7 +682,7 @@ openssl s_client -connect startuplawrag.thejolawfirm.uk:443 -servername startupl
 ```json
 {
   "type": "http",
-  "url": "https://startuplawrag.thejolawfirm.uk"
+  "url": "https://your-domain.com"
 }
 ```
 
@@ -690,7 +690,7 @@ openssl s_client -connect startuplawrag.thejolawfirm.uk:443 -servername startupl
 ```json
 {
   "type": "http",
-  "url": "https://startuplawrag.thejolawfirm.uk/mcp"
+  "url": "https://your-domain.com/mcp"
 }
 ```
 
@@ -700,7 +700,7 @@ openssl s_client -connect startuplawrag.thejolawfirm.uk:443 -servername startupl
 ```json
 {
   "type": "sse",
-  "url": "https://startuplawrag.thejolawfirm.uk/mcp"
+  "url": "https://your-domain.com/mcp"
 }
 ```
 
@@ -708,7 +708,7 @@ openssl s_client -connect startuplawrag.thejolawfirm.uk:443 -servername startupl
 ```json
 {
   "type": "http",
-  "url": "https://startuplawrag.thejolawfirm.uk/mcp"
+  "url": "https://your-domain.com/mcp"
 }
 ```
 
@@ -774,7 +774,7 @@ A: `/health` is for monitoring server status (simple HTTP GET). `/mcp` is the MC
   "mcpServers": {
     "legal-rag-server-remote": {
       "type": "http",
-      "url": "https://startuplawrag.thejolawfirm.uk/mcp"
+      "url": "https://your-domain.com/mcp"
     },
     "legal-rag-server-local": {
       "command": "uv",
@@ -787,8 +787,8 @@ A: `/health` is for monitoring server status (simple HTTP GET). `/mcp` is the MC
         "legal_rag_server.py"
       ],
       "env": {
-        "SUPABASE_URL": "http://185.28.22.212:8000",
-        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTExMjI4MDAsImV4cCI6MTkwODg4OTIwMH0.AkJ1xe-89rjxqTYNd2SHTbOexI_Altvs4a3oAB5j7G8",
+        "SUPABASE_URL": "https://your-project.supabase.co",
+        "SUPABASE_SERVICE_ROLE_KEY": "your-service-role-key-here",
         "OPENAI_API_KEY": "sk-proj-your-actual-openai-key-here",
         "COHERE_API_KEY": "your-actual-cohere-key-here"
       }
