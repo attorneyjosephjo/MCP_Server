@@ -318,7 +318,7 @@ async def search_documents_with_rerank(
         if document_type:
             filtered_results = [
                 r for r in filtered_results
-                if r.get('metadata', {}).get('type') == document_type
+                if r.get('metadata', {}).get('legaldocument_type') == document_type
             ]
 
             if not filtered_results:
@@ -382,7 +382,12 @@ def browse_by_type(
     """
     try:
         # Validate document type
-        VALID_TYPES = ['practice_guide', 'agreement', 'clause']
+        VALID_TYPES = [
+            'practice_notes_checklists',
+            'standard_documents_clauses',
+            'cases',
+            'laws_regulations'
+        ]
         if document_type not in VALID_TYPES:
             return create_error_response(
                 error_type="validation_error",
@@ -398,7 +403,7 @@ def browse_by_type(
 
         result = supabase.table(config.table_name) \
             .select('id, content, metadata') \
-            .eq('metadata->>type', document_type) \
+            .eq('metadata->>legaldocument_type', document_type) \
             .range(offset, offset + limit - 1) \
             .order('metadata->>created_at', desc=True) \
             .execute()
@@ -408,7 +413,7 @@ def browse_by_type(
         for doc in result.data:
             documents.append({
                 'id': doc['id'],
-                'type': doc['metadata'].get('type'),
+                'type': doc['metadata'].get('legaldocument_type'),
                 'title': doc['metadata'].get('title', 'Untitled'),
                 'summary': doc['content'][:200] + '...' if len(doc['content']) > 200 else doc['content'],
                 'metadata': doc['metadata']
@@ -435,23 +440,21 @@ def get_document(
     config: LegalRAGConfig
 ) -> Dict[str, Any]:
     """
-    Retrieve a specific legal document by UUID
+    Retrieve a specific legal document by its unique ID (integer)
 
     Args:
-        document_id: UUID of the document
+        document_id: Unique ID of the document (integer)
         config: LegalRAGConfig instance
 
     Returns:
         Complete document with full content and metadata
     """
     try:
-        # Validate UUID format
-        try:
-            uuid.UUID(document_id)
-        except ValueError:
-            return create_error_response(
+        # Validate ID format (must be integer-like string)
+        if not str(document_id).isdigit():
+             return create_error_response(
                 error_type="validation_error",
-                message="Invalid document ID format. Must be a valid UUID."
+                message="Invalid document ID format. Must be an integer."
             )
 
         # Fetch from Supabase
@@ -529,7 +532,7 @@ def list_documents(
             doc_data = {
                 'id': doc['id'],
                 'title': doc['metadata'].get('title', 'Untitled'),
-                'type': doc['metadata'].get('type', 'unknown'),
+                'type': doc['metadata'].get('legaldocument_type', 'unknown'),
                 'metadata': doc['metadata']
             }
 

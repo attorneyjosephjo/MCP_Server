@@ -197,3 +197,30 @@
 2025-12-10 16:42:43,626 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
 2025-12-10 16:42:43,627 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
 2025-12-10 16:42:43,628 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-11 00:28:47,946 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-11 00:28:47,974 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-11 00:28:47,974 - legal_rag - INFO - No authentication required for stdio mode
+2025-12-11 00:28:48,036 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-11 00:28:48,039 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-11 00:28:48,041 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-11 00:29:26,081 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-11 00:29:26,085 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-11 00:29:26,086 - legal_rag - INFO - No authentication required for stdio mode
+2025-12-11 00:29:26,100 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-11 00:29:26,101 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-11 00:29:26,102 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest
+2025-12-12 06:08:21,528 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-12 06:08:21,546 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-12 06:08:21,547 - legal_rag - INFO - No authentication required for stdio mode
+2025-12-12 19:36:47,562 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-12 19:36:47,589 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-12 19:36:47,590 - legal_rag - INFO - No authentication required for stdio mode
+2025-12-13 08:49:54,343 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-13 08:49:54,353 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-13 08:49:54,354 - legal_rag - INFO - No authentication required for stdio mode
+2025-12-13 10:11:32,596 - legal_rag - INFO - Legal RAG Server configuration loaded successfully
+2025-12-13 10:11:32,600 - legal_rag - INFO - Starting Legal RAG Server in stdio mode (local use)
+2025-12-13 10:11:32,601 - legal_rag - INFO - No authentication required for stdio mode
+2025-12-13 10:11:32,616 - mcp.server.lowlevel.server - INFO - Processing request of type ListToolsRequest
+2025-12-13 10:11:32,634 - mcp.server.lowlevel.server - INFO - Processing request of type ListPromptsRequest
+2025-12-13 10:11:32,635 - mcp.server.lowlevel.server - INFO - Processing request of type ListResourcesRequest

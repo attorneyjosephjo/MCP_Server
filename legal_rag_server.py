@@ -47,7 +47,7 @@ async def semantic_search_legal_documents(
         top_k: Number of results requested (default: 10, max: 10)
                Note: System returns up to 5 documents to optimize for Claude's context window.
                If you request 10, you'll receive the top 5 most relevant results.
-        document_type: Optional filter - "practice_guide", "agreement", or "clause"
+        document_type: Optional filter - "practice_notes_checklists", "standard_documents_clauses", "cases", or "laws_regulations"
 
     Returns:
         Dictionary with search results, each containing document content, metadata, and relevance score
@@ -103,7 +103,7 @@ def browse_legal_documents_by_type(
     Retrieve documents organized by category to explore specific types of legal content.
 
     Args:
-        document_type: Type of document - "practice_guide", "agreement", or "clause"
+        document_type: Type of document - "practice_notes_checklists", "standard_documents_clauses", "cases", or "laws_regulations"
         limit: Number of documents per page (default: 20, max: 100)
         offset: Pagination offset (default: 0)
 
@@ -111,13 +111,14 @@ def browse_legal_documents_by_type(
         Dictionary with paginated documents and metadata
 
     Document Types:
-        - practice_guide: Step-by-step guides and how-to documents
-        - agreement: Full legal agreement templates
-        - clause: Individual contract clauses and provisions
+        - practice_notes_checklists: Practice notes and checklists
+        - standard_documents_clauses: Standard documents and clauses
+        - cases: Case law
+        - laws_regulations: Laws and regulations
 
     Examples:
-        - Browse all agreement templates: document_type="agreement"
-        - Get next page of practice guides: document_type="practice_guide", offset=20
+        - Browse all standard documents: document_type="standard_documents_clauses"
+        - Get next page of practice notes: document_type="practice_notes_checklists", offset=20
     """
     try:
         return browse_by_type(
@@ -142,13 +143,13 @@ def get_legal_document_by_id(document_id: str) -> dict:
     and want to retrieve the full document content.
 
     Args:
-        document_id: UUID of the document (format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+        document_id: Unique ID of the document (integer string, e.g. "123")
 
     Returns:
         Complete document with full content and metadata
 
     Example:
-        document_id="550e8400-e29b-41d4-a716-446655440000"
+        document_id="12345"
     """
     try:
         return get_document(
