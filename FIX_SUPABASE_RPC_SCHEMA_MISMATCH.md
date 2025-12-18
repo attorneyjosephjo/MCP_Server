@@ -1,10 +1,25 @@
-# Fix: Supabase RPC Function Schema Mismatch
+# Legal RAG MCP Server - Bug Fixes & Updates
 
 **Date:** 2025-12-19
-**File Modified:** `legal_rag_utils.py`
-**Function:** `search_documents_with_rerank()`
+**Version:** Post-fix
+**Deployment URL:** `https://startuplawrag.thejolawfirm.uk/mcp`
 
 ---
+
+## Table of Contents
+
+1. [Fix #1: Supabase RPC Schema Mismatch](#fix-1-supabase-rpc-schema-mismatch)
+2. [Fix #2: Document Identification (notebook_id)](#fix-2-document-identification-using-notebook_id)
+3. [Understanding the Search Pipeline](#understanding-the-search-pipeline)
+4. [API Reference](#api-reference)
+5. [Database Schema](#database-schema)
+
+---
+
+# Fix #1: Supabase RPC Schema Mismatch
+
+**Files Modified:** `legal_rag_utils.py`
+**Function:** `search_documents_with_rerank()`
 
 ## Problem
 
@@ -18,24 +33,21 @@ When AI agents used the MCP server's semantic search tool, they encountered this
 }
 ```
 
-### Root Cause
+## Root Cause
 
 The Python code was calling the Supabase RPC function with incorrect parameters:
 
-| Parameter Position | Code Called | Supabase Expected |
-|--------------------|-------------|-------------------|
+| Parameter | Code Called (Wrong) | Supabase Expected (Correct) |
+|-----------|---------------------|----------------------------|
 | 1st | `match_threshold` | `filter` |
 | 2nd | `match_count` | `match_count` |
 | 3rd | `query_embedding` | `query_embedding` |
-
----
 
 ## Solution
 
 ### Before (Incorrect)
 
 ```python
-# legal_rag_utils.py - lines 295-302
 return supabase.rpc(
     config.match_function,
     {
@@ -49,7 +61,6 @@ return supabase.rpc(
 ### After (Fixed)
 
 ```python
-# legal_rag_utils.py - lines 295-307
 # Build filter for document type if provided
 filter_param = {}
 if document_type:
@@ -65,19 +76,9 @@ return supabase.rpc(
 ).execute()
 ```
 
----
-
-## Changes Made
-
-1. **Removed** `match_threshold` parameter (not supported by Supabase function)
-2. **Added** `filter` parameter as a JSONB object
-3. **Improved filtering** - Document type filtering now happens at database level instead of post-filtering in Python
-
----
-
 ## Filter Parameter Format
 
-The `filter` parameter accepts a JSONB object to filter results:
+The `filter` parameter accepts a JSONB object:
 
 ```python
 # No filter (search all documents)
@@ -89,37 +90,19 @@ filter_param = {'legaldocument_type': 'practice_notes_checklists'}
 
 ### Valid `legaldocument_type` Values
 
-- `practice_notes_checklists`
-- `standard_documents_clauses`
-- `cases`
-- `laws_regulations`
+| Value | Description |
+|-------|-------------|
+| `practice_notes_checklists` | Practice guides, checklists, how-to documents |
+| `standard_documents_clauses` | Templates, standard clauses, form documents |
+| `cases` | Case law, court decisions |
+| `laws_regulations` | Statutes, regulations, legal codes |
 
 ---
 
-## Testing
+# Fix #2: Document Identification Using notebook_id
 
-After this fix, the semantic search should work correctly:
-
-```json
-{
-  "tool": "semantic_search_legal_documents",
-  "query": "What is SAFEs?",
-  "top_k": 5,
-  "document_type": "practice_notes_checklists"
-}
-```
-
-Expected: Returns relevant legal documents instead of schema mismatch error.
-
----
-
-# Fix: Document Identification Using notebook_id Instead of Chunk ID
-
-**Date:** 2025-12-19
 **Files Modified:** `legal_rag_utils.py`, `legal_rag_server.py`
 **Functions:** `get_document()`, `list_documents()`
-
----
 
 ## Problem
 
@@ -129,39 +112,27 @@ The original implementation used chunk `id` (int8) to identify documents, but th
 2. The `id` field is just the **chunk ID**, not the document ID
 3. Using chunk ID would only return a single chunk, not the full document
 
-### Correct Document Structure
+## Database Structure
 
-```json
-{
-  "id": 12345,                    // Chunk ID (NOT unique per document)
-  "notebook_id": "gcGicGiHO59...", // Document ID (unique per document)
-  "doc_name": "Articles of Organization (CA).pdf",
-  "content": "chunk content here..."
-}
 ```
-
-A single document may have many chunks (e.g., IDs 12345, 12346, 12347) all sharing the same `notebook_id`.
-
----
+Document: "Articles of Organization (CA).pdf"
+├── Chunk 1 (id: 12345, notebook_id: "gcGicGiHO59...")
+├── Chunk 2 (id: 12346, notebook_id: "gcGicGiHO59...")
+├── Chunk 3 (id: 12347, notebook_id: "gcGicGiHO59...")
+└── Chunk 4 (id: 12348, notebook_id: "gcGicGiHO59...")
+                          ↑
+                  Same notebook_id for all chunks
+```
 
 ## Solution
 
-### 1. `get_document()` - Now Uses notebook_id
+### `get_document()` - Now Uses notebook_id
 
-**Before (Incorrect):**
-```python
-def get_document(document_id: str, config):
-    # Returns only ONE chunk
-    result = supabase.table(config.table_name) \
-        .select('*') \
-        .eq('id', document_id) \
-        .execute()
-```
+**Before:** Returns only ONE chunk by integer ID
+**After:** Returns ALL chunks combined by notebook_id
 
-**After (Fixed):**
 ```python
 def get_document(notebook_id: str, config):
-    # Returns ALL chunks for the document, combined
     result = supabase.table(config.table_name) \
         .select('*') \
         .eq('metadata->>notebook_id', notebook_id) \
@@ -172,45 +143,95 @@ def get_document(notebook_id: str, config):
     combined_content = "\n\n".join([chunk['content'] for chunk in chunks])
 ```
 
-### 2. `list_documents()` - Now Groups by notebook_id
+### `list_documents()` - Now Groups by notebook_id
 
-**Before (Incorrect):**
-- Listed individual chunks (same document appeared multiple times)
-- Returned chunk IDs
+**Before:** Listed individual chunks (duplicates)
+**After:** Lists unique documents grouped by notebook_id
 
-**After (Fixed):**
-- Groups chunks by `notebook_id` to get unique documents
-- Returns `notebook_id` for each document
-- Shows `chunk_count` indicating how many chunks per document
-- Combines content when `include_content=True`
+## API Changes Summary
 
----
-
-## API Changes
-
-### `get_legal_document_by_id` Tool
-
-| Attribute | Before | After |
-|-----------|--------|-------|
-| Parameter | `document_id` (int) | `notebook_id` (string) |
-| Returns | Single chunk | All chunks combined |
-| Example | `"12345"` | `"gcGicGiHO59qebbbgcGicGiHO59qebbbgcGi"` |
-
-### `list_all_legal_documents` Tool
-
-| Attribute | Before | After |
-|-----------|--------|-------|
-| Lists | Chunks | Unique documents |
-| Identifier | `id` (chunk) | `notebook_id` (document) |
-| New field | - | `chunk_count` |
-| Content | One chunk | All chunks combined |
+| Tool | Parameter Change | Returns |
+|------|------------------|---------|
+| `get_legal_document_by_id` | `document_id` (int) → `notebook_id` (string) | All chunks combined |
+| `list_all_legal_documents` | No change | Unique documents with `chunk_count` |
 
 ---
 
-## Response Format Examples
+# Understanding the Search Pipeline
 
-### `get_legal_document_by_id` Response
+## How Semantic Search Works
 
+```
+User Query: "What is SAFEs?"
+            ↓
+┌─────────────────────────────────────────────────────┐
+│ Step 1: Generate Embedding                          │
+│ - Model: text-embedding-3-small (OpenAI)            │
+│ - Converts query to 1536-dimension vector           │
+└─────────────────────────────────────────────────────┘
+            ↓
+┌─────────────────────────────────────────────────────┐
+│ Step 2: Vector Search (Supabase RPC)                │
+│ - Function: match_n8n_law_startuplaw                │
+│ - Retrieves 15 candidate CHUNKS                     │
+│ - Uses cosine similarity on embeddings              │
+│ - Optional: Filter by legaldocument_type            │
+└─────────────────────────────────────────────────────┘
+            ↓
+┌─────────────────────────────────────────────────────┐
+│ Step 3: Cohere Rerank                               │
+│ - Model: rerank-v3.5                                │
+│ - Reranks chunks by semantic relevance to query     │
+│ - Returns top 5 most relevant chunks                │
+│ - Adds relevance_score (0.0 - 1.0)                  │
+└─────────────────────────────────────────────────────┘
+            ↓
+        Returns top 5 most relevant CHUNKS
+        (may be from different documents)
+```
+
+## What Gets Reranked?
+
+**Important:** The reranking operates on **chunks**, not full documents.
+
+| Stage | Input | Output |
+|-------|-------|--------|
+| Vector Search | Query embedding | 15 candidate chunks |
+| Rerank | 15 chunks + query | Top 5 chunks with relevance scores |
+
+The returned chunks may come from different documents. Each chunk includes its `notebook_id` so users can retrieve the full document if needed.
+
+---
+
+# API Reference
+
+## Tools Available
+
+### 1. `semantic_search_legal_documents`
+
+Semantic search with vector similarity and Cohere reranking.
+
+```json
+{
+  "query": "What is SAFEs?",
+  "top_k": 5,
+  "document_type": "practice_notes_checklists"
+}
+```
+
+**Response:** Top 5 most relevant chunks with relevance scores.
+
+### 2. `get_legal_document_by_id`
+
+Retrieve a complete document by its notebook_id.
+
+```json
+{
+  "notebook_id": "gcGicGiHO59qebbbgcGicGiHO59qebbbgcGi"
+}
+```
+
+**Response:**
 ```json
 {
   "notebook_id": "gcGicGiHO59qebbbgcGicGiHO59qebbbgcGi",
@@ -223,8 +244,19 @@ def get_document(notebook_id: str, config):
 }
 ```
 
-### `list_all_legal_documents` Response
+### 3. `list_all_legal_documents`
 
+List unique documents with pagination.
+
+```json
+{
+  "limit": 50,
+  "offset": 0,
+  "include_content": false
+}
+```
+
+**Response:**
 ```json
 {
   "total_documents": 150,
@@ -243,10 +275,73 @@ def get_document(notebook_id: str, config):
 }
 ```
 
+### 4. `browse_legal_documents_by_type`
+
+Browse documents filtered by type.
+
+```json
+{
+  "document_type": "practice_notes_checklists",
+  "limit": 20,
+  "offset": 0
+}
+```
+
+---
+
+# Database Schema
+
+## Table: `n8n_law_startuplaw`
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | int8 | Chunk ID (auto-increment) |
+| `content` | text | Chunk text content |
+| `metadata` | jsonb | Document metadata |
+| `embedding` | vector(1536) | OpenAI embedding |
+| `fts` | tsvector | Full-text search vector |
+
+## Metadata Structure
+
+```json
+{
+  "notebook_id": "gcGicGiHO59qebbbgcGicGiHO59qebbbgcGi",
+  "doc_name": "Articles of Organization (CA).pdf",
+  "doc_id": "1vNd49VtJqYv9KlT5VLIZzSv_f16tzDhQ",
+  "legaldocument_type": "practice_notes_checklists",
+  "file_summary": "This Practice Note outlines...",
+  "jurisdiction": "united_states_california",
+  "main_category": "startuplaw",
+  "sub_category": "legal_entity_types_formation",
+  "file_path": "https://drive.google.com/...",
+  "loc": {
+    "lines": { "from": 1, "to": 6 }
+  }
+}
+```
+
+## RPC Function: `match_n8n_law_startuplaw`
+
+**Signature:**
+```sql
+match_n8n_law_startuplaw(
+  filter jsonb,
+  match_count int,
+  query_embedding vector(1536)
+)
+```
+
+**Parameters:**
+- `filter`: JSONB object for filtering (e.g., `{'legaldocument_type': 'cases'}`)
+- `match_count`: Number of results to return
+- `query_embedding`: 1536-dimension vector from OpenAI
+
 ---
 
 ## Related Files
 
-- `legal_rag_utils.py` - Contains the fixed `search_documents_with_rerank()`, `get_document()`, and `list_documents()` functions
-- `legal_rag_server.py` - MCP server that exposes the search tools
-- `DATABASE_SCHEMA_ALIGNMENT_PROMPT.md` - Database schema documentation
+| File | Purpose |
+|------|---------|
+| `legal_rag_utils.py` | Core search, retrieval, and reranking logic |
+| `legal_rag_server.py` | MCP server tool definitions |
+| `DATABASE_SCHEMA_ALIGNMENT_PROMPT.md` | Schema documentation template |

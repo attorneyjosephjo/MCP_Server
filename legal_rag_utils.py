@@ -37,6 +37,8 @@ class LegalRAGConfig:
     embedding_model: str = "text-embedding-3-small"
     rerank_model: str = "rerank-v3.5"
     match_threshold: float = 0.5  # Minimum similarity threshold for vector search
+    search_count: int = 10  # Number of RAG candidates to retrieve for reranking
+    rerank_count: int = 3   # Number of results to return after reranking
 
     @classmethod
     def from_env(cls) -> 'LegalRAGConfig':
@@ -61,6 +63,8 @@ class LegalRAGConfig:
             match_function=os.getenv('LEGAL_RAG_MATCH_FUNCTION', 'match_n8n_law_startuplaw'),
             top_k=int(os.getenv('LEGAL_RAG_TOP_K', '10')),
             match_threshold=float(os.getenv('LEGAL_RAG_MATCH_THRESHOLD', '0.5')),
+            search_count=int(os.getenv('LEGAL_RAG_SEARCH_COUNT', '10')),
+            rerank_count=int(os.getenv('LEGAL_RAG_RERANK_COUNT', '3')),
         )
 
     def validate(self) -> None:
@@ -73,6 +77,12 @@ class LegalRAGConfig:
 
         if self.match_threshold < 0.0 or self.match_threshold > 1.0:
             raise ValueError("match_threshold must be between 0.0 and 1.0")
+
+        if self.search_count < 1 or self.search_count > 50:
+            raise ValueError("search_count must be between 1 and 50")
+
+        if self.rerank_count < 1 or self.rerank_count > 20:
+            raise ValueError("rerank_count must be between 1 and 20")
 
 
 def retry_with_backoff(max_retries: int = 3, backoff_factor: float = 2):
@@ -290,7 +300,7 @@ async def search_documents_with_rerank(
         def _vector_search():
             logger.info("Inside _vector_search, getting Supabase client...")
             supabase = get_cached_supabase_client(config)
-            search_count = 15  # Retrieve 15 candidates for reranker
+            search_count = config.search_count  # Number of candidates to retrieve for reranker
             logger.info(f"Calling RPC function: {config.match_function} with count: {search_count}")
             # Build filter for document type if provided
             filter_param = {}
@@ -341,14 +351,14 @@ async def search_documents_with_rerank(
             reranked_results = await rerank_documents_async(
                 query=query,
                 documents=filtered_results,
-                top_n=min(top_k, 5),  # Cap at 5 documents for Claude context window
+                top_n=min(top_k, config.rerank_count),  # Limit reranked results
                 config=config
             )
             logger.info(f"Reranking completed, returning {len(reranked_results)} results")
         except Exception as e:
             # Fall back to vector similarity scores if reranking fails
             logger.warning(f"Reranking failed: {e}. Falling back to vector similarity scores.")
-            reranked_results = filtered_results[:min(top_k, 5)]  # Cap at 5 documents
+            reranked_results = filtered_results[:min(top_k, config.rerank_count)]  # Fallback limit
             for doc in reranked_results:
                 doc['relevance_score'] = doc.get('similarity', 0.0)
 
