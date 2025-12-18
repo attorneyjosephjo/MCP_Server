@@ -8,7 +8,8 @@ from legal_rag_utils import (
     browse_by_type,
     get_document,
     list_documents,
-    create_error_response
+    create_error_response,
+    get_cached_supabase_client
 )
 
 load_dotenv()
@@ -260,7 +261,7 @@ if __name__ == "__main__":
                 from api_key_auth_db import create_api_key_db
 
                 # Reuse existing Supabase connection
-                supabase_client = get_cached_supabase_client()
+                supabase_client = get_cached_supabase_client(config)
                 db_client = create_api_key_db(supabase_client)
 
                 logger.info("Database-backed API key authentication ENABLED")
