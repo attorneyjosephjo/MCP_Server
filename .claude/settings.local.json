@@ -15,7 +15,8 @@
       "Bash(git checkout:*)",
       "Bash(cat:*)",
       "Bash(pnpm lint:*)",
-      "Bash(pnpm typecheck:*)"
+      "Bash(pnpm typecheck:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: add missing import for database authentication initialization\n\nChanges made:\n- Added `get_cached_supabase_client` to imports from `legal_rag_utils`\n- Fixed function call to pass required `config` parameter\n\nProblem solved:\nWhen running the MCP server in HTTP mode with database-backed\nauthentication \\(`MCP_API_AUTH_DB_ENABLED=true`\\), the server would\ncrash with `NameError: name ''get_cached_supabase_client'' is not defined`.\nThe function was called but never imported, and was missing its\nrequired config argument.\n\nAdditional:\n- Added CHANGELOG.md to document this critical bug fix and provide\n  troubleshooting context for future reference\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   },
   "enableAllProjectMcpServers": true,
