@@ -292,11 +292,16 @@ async def search_documents_with_rerank(
             supabase = get_cached_supabase_client(config)
             search_count = 15  # Retrieve 15 candidates for reranker
             logger.info(f"Calling RPC function: {config.match_function} with count: {search_count}")
+            # Build filter for document type if provided
+            filter_param = {}
+            if document_type:
+                filter_param = {'legaldocument_type': document_type}
+
             return supabase.rpc(
                 config.match_function,
                 {
                     'query_embedding': query_embedding,
-                    'match_threshold': config.match_threshold,
+                    'filter': filter_param,
                     'match_count': search_count
                 }
             ).execute()
@@ -436,48 +441,59 @@ def browse_by_type(
 
 
 def get_document(
-    document_id: str,
+    notebook_id: str,
     config: LegalRAGConfig
 ) -> Dict[str, Any]:
     """
-    Retrieve a specific legal document by its unique ID (integer)
+    Retrieve a specific legal document by its notebook_id (unique document identifier)
 
     Args:
-        document_id: Unique ID of the document (integer)
+        notebook_id: Unique notebook_id of the document (links all chunks of the same document)
         config: LegalRAGConfig instance
 
     Returns:
-        Complete document with full content and metadata
+        Complete document with all chunks combined and metadata
     """
     try:
-        # Validate ID format (must be integer-like string)
-        if not str(document_id).isdigit():
-             return create_error_response(
+        # Validate notebook_id format
+        if not notebook_id or not isinstance(notebook_id, str) or len(notebook_id.strip()) == 0:
+            return create_error_response(
                 error_type="validation_error",
-                message="Invalid document ID format. Must be an integer."
+                message="Invalid notebook_id format. Must be a non-empty string."
             )
 
-        # Fetch from Supabase
+        # Fetch all chunks for this document from Supabase
         supabase = get_cached_supabase_client(config)
 
         result = supabase.table(config.table_name) \
             .select('*') \
-            .eq('id', document_id) \
+            .eq('metadata->>notebook_id', notebook_id) \
+            .order('metadata->loc->lines->>from') \
             .execute()
 
         # Handle not found
         if not result.data or len(result.data) == 0:
             return create_error_response(
                 error_type="not_found",
-                message=f"Document not found with ID: {document_id}",
+                message=f"Document not found with notebook_id: {notebook_id}",
                 details={"suggestion": "Use list_all_legal_documents to browse available documents"}
             )
 
-        document = result.data[0]
+        # Combine all chunks' content in order
+        chunks = result.data
+        combined_content = "\n\n".join([chunk['content'] for chunk in chunks])
+
+        # Use metadata from the first chunk (document-level info is the same across chunks)
+        first_chunk = chunks[0]
+        metadata = first_chunk.get('metadata', {})
+
         return {
-            "id": document['id'],
-            "content": document['content'],
-            "metadata": document.get('metadata', {}),
+            "notebook_id": notebook_id,
+            "doc_name": metadata.get('doc_name', 'Untitled'),
+            "total_chunks": len(chunks),
+            "content": combined_content,
+            "metadata": metadata,
+            "chunk_ids": [chunk['id'] for chunk in chunks],
             "retrieved_at": str(datetime.now())
         }
 
@@ -495,56 +511,105 @@ def list_documents(
     config: LegalRAGConfig
 ) -> Dict[str, Any]:
     """
-    List all legal documents with pagination
+    List unique legal documents with pagination (grouped by notebook_id)
 
     Args:
         limit: Number of documents per page (max 100)
-        offset: Pagination offset
-        include_content: Include full content in results
+        offset: Pagination offset (number of unique documents to skip)
+        include_content: Include full combined content in results
         config: LegalRAGConfig instance
 
     Returns:
-        Dictionary with paginated list of all documents
+        Dictionary with paginated list of unique documents (not chunks)
     """
     try:
         # Validate and clamp pagination
         limit = min(max(limit, 1), 100)
         offset = max(offset, 0)
 
-        # Query Supabase
+        # Query Supabase - fetch all chunks to group by notebook_id
         supabase = get_cached_supabase_client(config)
 
-        # Select fields based on include_content flag
-        fields = 'id, content, metadata' if include_content else 'id, metadata'
-
-        # Get documents with count
+        # First, get all unique notebook_ids with their first chunk's metadata
+        # We fetch more than needed to handle grouping
         result = supabase.table(config.table_name) \
-            .select(fields, count='exact') \
-            .range(offset, offset + limit - 1) \
-            .order('metadata->>created_at', desc=True) \
+            .select('id, content, metadata') \
             .execute()
 
-        total_count = result.count if result.count is not None else 0
+        if not result.data:
+            return {
+                "total_documents": 0,
+                "page_size": limit,
+                "offset": offset,
+                "current_page": 1,
+                "total_pages": 0,
+                "has_more": False,
+                "documents": []
+            }
+
+        # Group chunks by notebook_id to get unique documents
+        documents_map = {}
+        for chunk in result.data:
+            metadata = chunk.get('metadata', {})
+            notebook_id = metadata.get('notebook_id')
+
+            if not notebook_id:
+                continue
+
+            if notebook_id not in documents_map:
+                documents_map[notebook_id] = {
+                    'notebook_id': notebook_id,
+                    'doc_name': metadata.get('doc_name', 'Untitled'),
+                    'legaldocument_type': metadata.get('legaldocument_type', 'unknown'),
+                    'file_summary': metadata.get('file_summary', ''),
+                    'jurisdiction': metadata.get('jurisdiction', ''),
+                    'main_category': metadata.get('main_category', ''),
+                    'sub_category': metadata.get('sub_category', ''),
+                    'file_path': metadata.get('file_path', ''),
+                    'chunks': [],
+                    'chunk_count': 0
+                }
+
+            documents_map[notebook_id]['chunks'].append(chunk)
+            documents_map[notebook_id]['chunk_count'] += 1
+
+        # Convert to list and sort by doc_name
+        unique_documents = list(documents_map.values())
+        unique_documents.sort(key=lambda x: x['doc_name'].lower())
+
+        total_count = len(unique_documents)
+
+        # Apply pagination
+        paginated_docs = unique_documents[offset:offset + limit]
 
         # Format response
         documents = []
-        for doc in result.data:
+        for doc in paginated_docs:
             doc_data = {
-                'id': doc['id'],
-                'title': doc['metadata'].get('title', 'Untitled'),
-                'type': doc['metadata'].get('legaldocument_type', 'unknown'),
-                'metadata': doc['metadata']
+                'notebook_id': doc['notebook_id'],
+                'doc_name': doc['doc_name'],
+                'legaldocument_type': doc['legaldocument_type'],
+                'chunk_count': doc['chunk_count'],
+                'jurisdiction': doc['jurisdiction'],
+                'main_category': doc['main_category'],
+                'sub_category': doc['sub_category'],
+                'file_path': doc['file_path']
             }
 
-            if include_content:
-                doc_data['content'] = doc.get('content', '')
+            # Add summary from file_summary
+            if doc['file_summary']:
+                summary = doc['file_summary']
+                doc_data['summary'] = summary[:300] + '...' if len(summary) > 300 else summary
             else:
-                # When content is not selected, try to get summary from metadata
-                summary = doc.get('metadata', {}).get('summary', '')
-                if summary:
-                    doc_data['summary'] = summary[:200] + '...' if len(summary) > 200 else summary
-                else:
-                    doc_data['summary'] = '[No summary available]'
+                doc_data['summary'] = '[No summary available]'
+
+            if include_content:
+                # Sort chunks by line number and combine content
+                sorted_chunks = sorted(
+                    doc['chunks'],
+                    key=lambda c: c.get('metadata', {}).get('loc', {}).get('lines', {}).get('from', 0)
+                )
+                doc_data['content'] = "\n\n".join([c['content'] for c in sorted_chunks])
 
             documents.append(doc_data)
 

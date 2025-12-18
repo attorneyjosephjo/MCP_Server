@@ -136,25 +136,26 @@ def browse_legal_documents_by_type(
 
 
 @mcp.tool()
-def get_legal_document_by_id(document_id: str) -> dict:
+def get_legal_document_by_id(notebook_id: str) -> dict:
     """
-    Retrieve a specific legal document by its unique ID.
+    Retrieve a specific legal document by its notebook_id (unique document identifier).
 
-    Use this tool when you have a document ID from a previous search or list operation
-    and want to retrieve the full document content.
+    Use this tool when you have a notebook_id from a previous search or list operation
+    and want to retrieve the full document content. The notebook_id uniquely identifies
+    a document and links all its chunks together.
 
     Args:
-        document_id: Unique ID of the document (integer string, e.g. "123")
+        notebook_id: Unique notebook_id of the document (e.g. "gcGicGiHO59qebbbgcGicGiHO59qebbbgcGi")
 
     Returns:
-        Complete document with full content and metadata
+        Complete document with all chunks combined, full content and metadata
 
     Example:
-        document_id="12345"
+        notebook_id="gcGicGiHO59qebbbgcGicGiHO59qebbbgcGi"
     """
     try:
         return get_document(
-            document_id=document_id,
+            notebook_id=notebook_id,
             config=config
         )
     except Exception as e:
@@ -171,22 +172,29 @@ def list_all_legal_documents(
     include_content: bool = False
 ) -> dict:
     """
-    List all legal documents with pagination.
+    List all unique legal documents with pagination (grouped by notebook_id).
 
     Browse the entire document collection with optional full content inclusion.
+    Documents are uniquely identified by notebook_id (not chunk id).
 
     Args:
-        limit: Number of documents per page (default: 50, max: 100)
-        offset: Pagination offset (default: 0)
-        include_content: Include full content in results (default: False, only summaries)
+        limit: Number of unique documents per page (default: 50, max: 100)
+        offset: Pagination offset - number of documents to skip (default: 0)
+        include_content: Include full combined content in results (default: False, only summaries)
 
     Returns:
-        Dictionary with paginated list of all documents, including total count and pagination info
+        Dictionary with paginated list of unique documents, each containing:
+        - notebook_id: Unique document identifier (use with get_legal_document_by_id)
+        - doc_name: Document title/filename
+        - legaldocument_type: Document category
+        - chunk_count: Number of chunks in the document
+        - summary: Document summary (from file_summary metadata)
+        - content: Full combined text (only if include_content=True)
 
     Usage Tips:
         - Set include_content=False (default) for faster browsing with summaries
         - Set include_content=True when you need full document text
-        - Use offset to navigate through pages (e.g., offset=50 for page 2)
+        - Use the notebook_id to retrieve a specific document with get_legal_document_by_id
 
     Examples:
         - First page with summaries: limit=50, offset=0, include_content=False
